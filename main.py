@@ -1,6 +1,5 @@
 import sys
 import json
-from math import inf
 
 import pygame
 from pygame.locals import *
@@ -10,11 +9,11 @@ houses = {"house1": [[0, 0], [-1, 0], [1, 0]],
           "house3": [[0, 0], [0, -1], [-1, -1], [0, 1]],
           "house4": [[0, 0], [0, 1], [1, 0]]}
 cars = {"car1": [("left", "right"), ("right", "left"), ("top", "bottom")],  # T
-        "car2": [("top", "bottom"), ("bottom", "top")],  # I
-        "car3": [[0, 0, False], [0, -1, True], [1, -1, False], [0, 1, False]],  # Г
-        "car4": [[0, 0, False], [0, -1, False], [-1, -1, False], [0, 1, True]],  # Г(обр.)
-        "car5": [[0, 0, True], [1, 0, False], [0, 1, False]],  # угол ц.
-        "car6": [[0, 0, False], [1, 0, True], [0, 1, False]]}  # угол 2
+        "car2": [("left", "right"), ("right", "left")],  # I
+        "car3": [("top", "bottom"), ("bottom", "top"), ("bottomleft", "topright")],  # Г
+        "car4": [("top", "bottom"), ("bottom", "top"), ("topleft", "bottomright")],  # Г(обр.)
+        "car5": [("top", "bottom"), ("right", "left")],  # угол ц.
+        "car6": [("bottom", "top"), ("left", "right")]}  # угол 2
 TILE_SIZE = 150
 
 
@@ -38,7 +37,8 @@ def start_level(level=1):
     for i in house_list:
         ocupied_tiles.extend(i.board_tiles)
 
-    test = Car(cars["car2"], 1)
+    for num, key in enumerate(cars):
+        car_list.append(Car(cars[f'car{num + 1}'], num + 1))
 
     while True:
         screen.fill((0, 0, 0))
@@ -50,7 +50,8 @@ def start_level(level=1):
 
         # Update.
         car_surf.update()
-        test.update()
+        for car in car_list:
+            car.update()
 
         # Draw.
         for tile in grid:
@@ -58,7 +59,8 @@ def start_level(level=1):
         pygame.draw.rect(screen, (255, 0, 0), red_car)
         [house.draw() for house in house_list]
         car_surf.draw()
-        test.draw()
+        for car in car_list:
+            car.draw()
 
         pygame.display.flip()
         fpsClock.tick(fps)
@@ -98,14 +100,16 @@ class CarSurface:
         self.surf = pygame.Surface((self.car_surf_rect.width, self.car_surf_rect.height))
         self.surf.fill((255, 255, 255))
 
-        self.cars_poss = [[200, 100]]
+        self.cars_poss = [[200, 100], [200, 500], [600, 320], [1000, 260], [1600, 100], [1400, 500]]
+
+        self.move_limit = height // 3
 
     def update(self):
         if self.car_surf_rect.collidepoint(pygame.mouse.get_pos()):
-            if self.car_surf_rect.top > height // 2:
+            if self.car_surf_rect.top > self.move_limit:
                 self.car_surf_rect.top -= 80
-            if self.car_surf_rect.top < height // 2:
-                self.car_surf_rect.top = height // 2
+            if self.car_surf_rect.top < self.move_limit:
+                self.car_surf_rect.top = self.move_limit
         else:
             self.car_surf_rect.top += 85
             if self.car_surf_rect.top > height - 90:
@@ -125,6 +129,7 @@ class Car:
         self.number, self.data = number, data
         self.is_placed = False
         self.is_picked = False
+        self.on_whiteboard = True
 
         self.rects = [pygame.Rect((0, 0), [TILE_SIZE] * 2) for _ in range(len(data))]
         self.main_rect = pygame.Rect(car_surf.get_position_of(self.number), [TILE_SIZE] * 2)
@@ -133,22 +138,25 @@ class Car:
 
     def update(self):
         if (self.main_rect.collidepoint(pygame.mouse.get_pos()) or any(
-                [i.collidepoint(pygame.mouse.get_pos()) for i in self.rects])) and pygame.mouse.get_pressed()[0]:
-            self.main_rect.center = pygame.mouse.get_pos()
+                i.collidepoint(pygame.mouse.get_pos()) for i in self.rects)) and pygame.mouse.get_pressed()[0]:
             self.is_picked = True
+            self.is_placed = False
+            self.on_whiteboard = False
         else:
             if not pygame.mouse.get_pressed()[0]:
                 self.is_picked = False
-            else:
-                self.main_rect.center = pygame.mouse.get_pos()
-            if self.main_rect.colliderect(ground):
-                self.is_placed = True
-                self.is_picked = False
-                return self.place_closest()
-            else:
-                self.is_placed = False
+                if self.main_rect.colliderect(ground):
+                    self.is_placed = True
+                else:
+                    self.on_whiteboard = True
 
-        if not self.is_placed and not self.is_picked:
+        if self.is_picked:
+            self.main_rect.center = pygame.mouse.get_pos()
+
+        if self.is_placed:
+            self.place_closest()
+
+        if self.on_whiteboard:
             self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number)
 
         self.update_rects()
@@ -164,16 +172,11 @@ class Car:
             pygame.draw.rect(screen, (50, 120, 255), i)
 
     def place_closest(self):
-        cords = [inf] * 2
         for tile in grid:
-            if self.main_rect.colliderect(tile) and (cords[0] ** 2 + cords[1] ** 2) ** 0.5:
-                new_distance = (abs(self.main_rect.bottomright[0] - tile.bottomright[0]) ** 2 + abs(self.main_rect.bottomright[1] - tile.bottomright[1]) ** 2) ** 0.5
-                old_distance = (cords[0] ** 2 + cords[1] ** 2) ** 0.5
-                if new_distance < old_distance:
-                    cords = tile.center
-        self.main_rect.center = cords
-        self.update_rects()
-        return
+            if tile.collidepoint(self.main_rect.center):
+                self.main_rect.center = tile.center
+                break
+        # self.update_rects()
 
 
 pygame.init()
