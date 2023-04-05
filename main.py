@@ -14,15 +14,32 @@ cars = {"car1": [("left", "right"), ("right", "left"), ("top", "bottom")],  # T
         "car4": [("top", "bottom"), ("bottom", "top"), ("topleft", "bottomright")],  # Г(обр.)
         "car5": [("top", "bottom"), ("right", "left")],  # угол ц.
         "car6": [("bottom", "top"), ("left", "right")]}  # угол 2
+next_sides_c = ["left", "top", "right", "bottom"]
+next_sides_e = ["topleft", "topright", "bottomright", "bottomleft"]
 TILE_SIZE = 150
 
 
+def rotate(data, step=1):
+    res = []
+    for i in data:
+        i = list(i)
+        if i[0] in next_sides_c:
+            temp = [(next_sides_c.index(j) + step) % 4 for j in i]
+            temp = next_sides_c[temp[0]], next_sides_c[temp[1]]
+        else:
+            temp = [(next_sides_e.index(j) + step) % 4 for j in i]
+            temp = next_sides_e[temp[0]], next_sides_e[temp[1]]
+        res.append(temp)
+
+    return res
+
+
 def show_menu():
-    start_level(1)
+    start_level(2)
 
 
 def start_level(level=1):
-    global car_surf
+    global car_surf, car_list
     house_list = []
     car_list = []
     with open(f"levels/level_{level}.json", "r") as f:
@@ -47,6 +64,8 @@ def start_level(level=1):
             if event.type == QUIT or pygame.mouse.get_pos() >= (1920 - 2, 1080 - 2):
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.MOUSEWHEEL:
+                [car.rotate(event.y) for car in car_list]  # * settings["rotation_direction"]
 
         # Update.
         car_surf.update()
@@ -54,13 +73,20 @@ def start_level(level=1):
             car.update()
 
         # Draw.
+        #  bottom level
         for tile in grid:
             pygame.draw.rect(screen, (0, 255, 0), tile)
         pygame.draw.rect(screen, (255, 0, 0), red_car)
         [house.draw() for house in house_list]
+
+        #  mid level
+        [car.draw() for car in car_list]
         car_surf.draw()
-        for car in car_list:
-            car.draw()
+
+        # top level
+        for car in car_list:  # отрисовка машин на верхнем слое только если они не размещены или подняты
+            if not car.is_placed or car.is_picked:
+                car.draw()
 
         pygame.display.flip()
         fpsClock.tick(fps)
@@ -101,8 +127,9 @@ class CarSurface:
         self.surf.fill((255, 255, 255))
 
         self.cars_poss = [[200, 100], [200, 500], [600, 320], [1000, 260], [1600, 100], [1400, 500]]
-
         self.move_limit = height // 3
+
+        self.is_expended = False
 
     def update(self):
         if self.car_surf_rect.collidepoint(pygame.mouse.get_pos()):
@@ -110,7 +137,9 @@ class CarSurface:
                 self.car_surf_rect.top -= 80
             if self.car_surf_rect.top < self.move_limit:
                 self.car_surf_rect.top = self.move_limit
+                self.is_expended = True
         else:
+            self.is_expended = False
             self.car_surf_rect.top += 85
             if self.car_surf_rect.top > height - 90:
                 self.car_surf_rect.top = height - 90
@@ -130,6 +159,7 @@ class Car:
         self.is_placed = False
         self.is_picked = False
         self.on_whiteboard = True
+        self.speed = 40
 
         self.rects = [pygame.Rect((0, 0), [TILE_SIZE] * 2) for _ in range(len(data))]
         self.main_rect = pygame.Rect(car_surf.get_position_of(self.number), [TILE_SIZE] * 2)
@@ -139,16 +169,20 @@ class Car:
     def update(self):
         if (self.main_rect.collidepoint(pygame.mouse.get_pos()) or any(
                 i.collidepoint(pygame.mouse.get_pos()) for i in self.rects)) and pygame.mouse.get_pressed()[0]:
-            self.is_picked = True
-            self.is_placed = False
-            self.on_whiteboard = False
+            if self.is_placed and car_surf.car_surf_rect.collidepoint(pygame.mouse.get_pos()):
+                return
+            if not any(map(lambda n: n.is_picked, car_list)):
+                self.is_picked = True
+                self.is_placed = False
+                self.on_whiteboard = False
         else:
             if not pygame.mouse.get_pressed()[0]:
                 self.is_picked = False
-                if self.main_rect.colliderect(ground):
-                    self.is_placed = True
-                else:
-                    self.on_whiteboard = True
+                self.is_placed = True
+                # if self.main_rect.colliderect(ground) and not car_surf.is_expended:
+                #     self.is_placed = True
+                # else:
+                #     self.on_whiteboard = True
 
         if self.is_picked:
             self.main_rect.center = pygame.mouse.get_pos()
@@ -157,6 +191,8 @@ class Car:
             self.place_closest()
 
         if self.on_whiteboard:
+            self.is_placed = False
+            self.reset_rotation()
             self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number)
 
         self.update_rects()
@@ -175,27 +211,43 @@ class Car:
         for tile in grid:
             if tile.collidepoint(self.main_rect.center):
                 self.main_rect.center = tile.center
-                break
-        # self.update_rects()
+                self.check_boundary()
+                return
+        self.is_placed = False
+        self.on_whiteboard = True
 
+    def rotate(self, step):
+        if self.is_picked:
+            self.data = rotate(self.data, step)
 
-pygame.init()
+        self.update_rects()
 
-fps = 60
-fpsClock = pygame.time.Clock()
+    def reset_rotation(self):
+        self.data = cars[f'car{self.number}']
 
-width, height = 1920, 1080
-screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    def check_boundary(self):
+        for rect in self.rects:
+            if not rect.colliderect(ground):
+                self.is_placed, self.on_whiteboard = False, True
 
-grid = []
-ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
-ground_pos = list(screen.get_rect().center)
-ground_pos[1] -= 50
-ground.center = ground_pos
-for x in range(6):
-    for y in range(6):
-        x_pos, y_pos = get_ground_position(x, y)
-        grid.append(pygame.Rect((x_pos + 2, y_pos + 2), [TILE_SIZE - 4] * 2))
 
 if __name__ == "__main__":
+    pygame.init()
+
+    fps = 60
+    fpsClock = pygame.time.Clock()
+
+    width, height = 1920, 1080
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+
+    grid = []
+    ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
+    ground_pos = list(screen.get_rect().center)
+    ground_pos[1] -= 50
+    ground.center = ground_pos
+    for x in range(6):
+        for y in range(6):
+            x_pos, y_pos = get_ground_position(x, y)
+            grid.append(pygame.Rect((x_pos, y_pos), [TILE_SIZE] * 2))
+
     show_menu()
