@@ -35,7 +35,7 @@ def rotate(data, step=1):
 
 
 def show_menu():
-    start_level(2)
+    start_level(1)
 
 
 def start_level(level=1):
@@ -84,9 +84,13 @@ def start_level(level=1):
         car_surf.draw()
 
         # top level
-        for car in car_list:  # отрисовка машин на верхнем слое только если они не размещены или подняты
-            if not car.is_placed or car.is_picked:
+        last = None
+        for car in car_list:  # отрисовка машин на верхнем слое только если они не размещены
+            if not car.is_placed:
                 car.draw()
+            if car.is_picked:
+                last = car
+        last.draw() if last else None
 
         pygame.display.flip()
         fpsClock.tick(fps)
@@ -137,7 +141,7 @@ class CarSurface:
                 self.car_surf_rect.top -= 80
             if self.car_surf_rect.top < self.move_limit:
                 self.car_surf_rect.top = self.move_limit
-                self.is_expended = True
+            self.is_expended = True
         else:
             self.is_expended = False
             self.car_surf_rect.top += 85
@@ -176,7 +180,7 @@ class Car:
                 self.is_placed = False
                 self.on_whiteboard = False
         else:
-            if not pygame.mouse.get_pressed()[0]:
+            if not pygame.mouse.get_pressed()[0] and not self.on_whiteboard:
                 self.is_picked = False
                 self.is_placed = True
                 # if self.main_rect.colliderect(ground) and not car_surf.is_expended:
@@ -192,8 +196,12 @@ class Car:
 
         if self.on_whiteboard:
             self.is_placed = False
-            self.reset_rotation()
-            self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number)
+            # self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number) если сломаются анимации
+            if self.main_rect.y <= height + 100 and not car_surf.is_expended:
+                self.main_rect.y += 85
+            else:
+                self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number)
+                self.reset_rotation()
 
         self.update_rects()
 
