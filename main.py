@@ -14,6 +14,7 @@ cars = {"car1": [("left", "right"), ("right", "left"), ("top", "bottom")],  # T
         "car4": [("top", "bottom"), ("bottom", "top"), ("topleft", "bottomright")],  # Г(обр.)
         "car5": [("top", "bottom"), ("right", "left")],  # угол ц.
         "car6": [("bottom", "top"), ("left", "right")]}  # угол 2
+car_places = [2, -1, 1, 1, -1, 0]
 next_sides_c = ["left", "top", "right", "bottom"]
 next_sides_e = ["topleft", "topright", "bottomright", "bottomleft"]
 TILE_SIZE = 150
@@ -55,9 +56,10 @@ def start_level(level=1):
         ocupied_tiles.extend(i.board_tiles)
 
     for num, key in enumerate(cars):
-        car_list.append(Car(cars[f'car{num + 1}'], num + 1))
+        car_list.append(Car(cars[f'car{num + 1}'], num + 1, car_places[num]))
 
     while True:
+        curent_tiles = ocupied_tiles.copy()
         screen.fill((0, 0, 0))
 
         for event in pygame.event.get():
@@ -70,7 +72,13 @@ def start_level(level=1):
         # Update.
         car_surf.update()
         for car in car_list:
-            car.update()
+            car_tiles = car.update()
+            flag = False
+            for i in car_tiles:
+                if i in curent_tiles and car.is_placed:
+                    car.is_placed = False
+                    car.remove()
+                    flag = True
 
         # Draw.
         #  bottom level
@@ -158,8 +166,8 @@ class CarSurface:
 
 
 class Car:
-    def __init__(self, data, number):
-        self.number, self.data = number, data
+    def __init__(self, data, number, car_pos):
+        self.number, self.data, self.car_pos = number, data, car_pos
         self.is_placed = False
         self.is_picked = False
         self.on_whiteboard = True
@@ -195,25 +203,45 @@ class Car:
             self.place_closest()
 
         if self.on_whiteboard:
-            self.is_placed = False
-            # self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number) если сломаются анимации
-            if self.main_rect.y <= height + 100 and not car_surf.is_expended:
-                self.main_rect.y += 85
-            else:
-                self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number)
-                self.reset_rotation()
+            self.remove()
 
         self.update_rects()
+
+        res = []  # add main_rect
+        for rect in self.rects + [self.main_rect]:
+            for tile in grid:
+                if rect.colliderect(tile):
+                    res.append(grid.index(tile))
+        res = list(map(lambda n: [n // 6, n % 6], res))
+        return res
+
 
     def update_rects(self):
         for index, item in enumerate(self.data):
             self.rects[index].x, self.rects[index].y = self.main_rect.x, self.main_rect.y
             exec(f'self.rects[index].{item[0]}=self.main_rect.{item[1]}')
 
+    def remove(self):
+        self.is_placed = False
+        # self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number) если сломаются анимации
+        if self.main_rect.y <= height + 100 and not car_surf.is_expended:
+            self.main_rect.y += 85
+        else:
+            self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number)
+            self.reset_rotation()
+
+        self.update_rects()
+
     def draw(self):
-        pygame.draw.rect(screen, (100, 0, 255), self.main_rect)
-        for i in self.rects:
-            pygame.draw.rect(screen, (50, 120, 255), i)
+        if self.car_pos == -1:
+            pygame.draw.rect(screen, (30, 30, 120), self.main_rect)
+        else:
+            pygame.draw.rect(screen, (50, 120, 255), self.main_rect)
+        for index, item in enumerate(self.rects):
+            if index == self.car_pos and self.car_pos != -1:
+                pygame.draw.rect(screen, (30, 30, 120), item)
+            else:
+                pygame.draw.rect(screen, (50, 120, 255), item)
 
     def place_closest(self):
         for tile in grid:
