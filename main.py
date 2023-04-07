@@ -11,7 +11,7 @@ houses = {"house1": [[0, 0], [-1, 0], [1, 0]],
 cars = {"car1": [("left", "right"), ("right", "left"), ("top", "bottom")],  # T
         "car2": [("left", "right"), ("right", "left")],  # I
         "car3": [("top", "bottom"), ("bottom", "top"), ("bottomleft", "topright")],  # Г
-        "car4": [("top", "bottom"), ("bottom", "top"), ("topleft", "bottomright")],  # Г(обр.)
+        "car4": [("top", "bottom"), ("bottom", "top"), ("topleft", "bottomright")],  # Г(обр.) крашит игру
         "car5": [("top", "bottom"), ("right", "left")],  # угол ц.
         "car6": [("bottom", "top"), ("left", "right")]}  # угол 2
 car_places = [2, -1, 1, 1, -1, 0]
@@ -36,7 +36,7 @@ def rotate(data, step=1):
 
 
 def show_menu():
-    start_level(1)
+    start_level(2)
 
 
 def start_level(level=1):
@@ -73,6 +73,8 @@ def start_level(level=1):
         car_surf.update()
         for car in car_list:
             car_tiles = car.update()
+            if not car_tiles: # костыль
+                car_tiles = []
             flag = False
             for i in car_tiles:
                 if i in curent_tiles and car.is_placed:
@@ -212,7 +214,7 @@ class Car:
             for tile in grid:
                 if rect.colliderect(tile):
                     res.append(grid.index(tile))
-        res = list(map(lambda n: [n // 6, n % 6], res))
+        res = list(map(lambda n: [n // 6, n % 6], res)) if res else []
         return res
 
 
