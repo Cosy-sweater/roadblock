@@ -205,7 +205,7 @@ class Car:
                 self.is_picked = False
                 self.is_placed = True
 
-                if self.main_rect.colliderect(ground) and car_surf.is_expended:
+                if self.main_rect.colliderect(ground) and car_surf.is_expended and not self.is_placed:
                     self.on_whiteboard = True
                 else:
                     self.on_whiteboard = False
