@@ -4,6 +4,14 @@ import json
 import pygame
 from pygame.locals import *
 
+pygame.init()
+
+fps = 60
+fpsClock = pygame.time.Clock()
+
+width, height = 1920, 1080
+screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)  # , pygame.FULLSCREEN)
+
 houses = {"house1": [[0, 0], [-1, 0], [1, 0]],
           "house2": [[0, 0], [0, -1], [1, -1], [0, 1]],
           "house3": [[0, 0], [0, -1], [-1, -1], [0, 1]],
@@ -17,7 +25,8 @@ cars = {"car1": [("left", "right"), ("right", "left"), ("top", "bottom")],  # T
 car_places = [2, -1, 1, 1, -1, 0]
 next_sides_c = ["left", "top", "right", "bottom"]
 next_sides_e = ["topleft", "topright", "bottomright", "bottomleft"]
-TILE_SIZE = 150
+screen_w, screen_h = pygame.display.get_surface().get_size()
+TILE_SIZE = 150 * (screen_w / width)
 
 
 def rotate(data, step=1):
@@ -73,6 +82,8 @@ def start_level(level=1):
         car_surf.update()
         for car in car_list:
             car_tiles = car.update()
+            if car_tiles is None:
+                return car
             flag = False
             for i in car_tiles:
                 if i in curent_tiles and car.is_placed:
@@ -134,12 +145,14 @@ class House:
 
 class CarSurface:
     def __init__(self):
-        self.car_surf_rect = pygame.Rect((0, height - 90), (width, height))
+        self.car_surf_rect = pygame.Rect((0, screen_h - 90), (screen_w, screen_h))
         self.surf = pygame.Surface((self.car_surf_rect.width, self.car_surf_rect.height))
         self.surf.fill((255, 255, 255))
 
         self.cars_poss = [[200, 100], [200, 500], [600, 320], [1000, 260], [1600, 100], [1400, 500]]
-        self.move_limit = height // 3
+        self.cars_poss = [[i[0] * (screen_w / width), i[1] * (screen_h / height)] for i in self.cars_poss]
+        self.move_limit = screen_h // 3
+        self.bottom_border = 90 * (screen_h / height)
 
         self.is_expended = False
 
@@ -153,8 +166,8 @@ class CarSurface:
         else:
             self.is_expended = False
             self.car_surf_rect.top += 85
-            if self.car_surf_rect.top > height - 90:
-                self.car_surf_rect.top = height - 90
+            if self.car_surf_rect.top > screen_h - self.bottom_border:
+                self.car_surf_rect.top = screen_h - self.bottom_border
 
     def draw(self):
         screen.blit(self.surf, self.car_surf_rect)
@@ -182,13 +195,13 @@ class Car:
         if (self.main_rect.collidepoint(pygame.mouse.get_pos()) or any(
                 i.collidepoint(pygame.mouse.get_pos()) for i in self.rects)) and pygame.mouse.get_pressed()[0]:
             if self.is_placed and car_surf.car_surf_rect.collidepoint(pygame.mouse.get_pos()):
-                return
+                return []
             if not any(map(lambda n: n.is_picked, car_list)):
                 self.is_picked = True
                 self.is_placed = False
                 self.on_whiteboard = False
         else:
-            if not pygame.mouse.get_pressed()[0] and not self.on_whiteboard:
+            if (not pygame.mouse.get_pressed()[0]) and (not self.on_whiteboard):
                 self.is_picked = False
                 self.is_placed = True
                 # if self.main_rect.colliderect(ground) and not car_surf.is_expended:
@@ -208,13 +221,16 @@ class Car:
         self.update_rects()
 
         res = []  # add main_rect
+        if not self.is_placed:
+            return res
         for rect in self.rects + [self.main_rect]:
             for tile in grid:
                 if rect.colliderect(tile):
                     res.append(grid.index(tile))
         res = list(map(lambda n: [n // 6, n % 6], res))
+        if res is None:
+            print(1)
         return res
-
 
     def update_rects(self):
         for index, item in enumerate(self.data):
@@ -224,7 +240,7 @@ class Car:
     def remove(self):
         self.is_placed = False
         # self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number) если сломаются анимации
-        if self.main_rect.y <= height + 100 and not car_surf.is_expended:
+        if self.main_rect.y <= screen_h + 100 and not car_surf.is_expended:
             self.main_rect.y += 85
         else:
             self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number)
@@ -268,14 +284,6 @@ class Car:
 
 
 if __name__ == "__main__":
-    pygame.init()
-
-    fps = 60
-    fpsClock = pygame.time.Clock()
-
-    width, height = 1920, 1080
-    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-
     grid = []
     ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
     ground_pos = list(screen.get_rect().center)
