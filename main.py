@@ -204,16 +204,26 @@ class Car:
             if (not pygame.mouse.get_pressed()[0]) and (not self.on_whiteboard):
                 self.is_picked = False
                 self.is_placed = True
-                # if self.main_rect.colliderect(ground) and not car_surf.is_expended:
-                #     self.is_placed = True
-                # else:
-                #     self.on_whiteboard = True
+
+                if self.main_rect.colliderect(ground) and car_surf.is_expended:
+                    self.on_whiteboard = True
+                else:
+                    self.on_whiteboard = False
 
         if self.is_picked:
             self.main_rect.center = pygame.mouse.get_pos()
 
         if self.is_placed:
             self.place_closest()
+            self.update_rects()
+            for i in car_list:
+                if not i.main_rect == self.main_rect and i.is_placed:
+                    for j in self.rects:
+                        if any(j.colliderect(k) for k in i.rects) or j.colliderect(i.main_rect):
+                            self.remove()
+                        if any(self.main_rect.colliderect(k) for k in i.rects) or\
+                                self.main_rect.colliderect(i.main_rect):
+                            self.remove()
 
         if self.on_whiteboard:
             self.remove()
