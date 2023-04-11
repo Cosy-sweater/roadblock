@@ -76,7 +76,7 @@ def start_level(level=1):
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.MOUSEWHEEL:
-                [car.rotate(event.y) for car in car_list]  # * settings["rotation_direction"]
+                [car.rotate(event.y * -1) for car in car_list]  # * settings["rotation_direction"]
 
         # Update.
         car_surf.update()
@@ -88,7 +88,7 @@ def start_level(level=1):
             for i in car_tiles:
                 if i in curent_tiles and car.is_placed:
                     car.is_placed = False
-                    car.remove()
+                    car.move_to_board()
                     flag = True
 
         # Draw.
@@ -183,8 +183,7 @@ class Car:
         self.number, self.data, self.car_pos = number, data, car_pos
         self.is_placed = False
         self.is_picked = False
-        self.on_whiteboard = True
-        self.speed = 40
+        self.is_on_whiteboard = True
 
         self.rects = [pygame.Rect((0, 0), [TILE_SIZE] * 2) for _ in range(len(data))]
         self.main_rect = pygame.Rect(car_surf.get_position_of(self.number), [TILE_SIZE] * 2)
@@ -199,16 +198,16 @@ class Car:
             if not any(map(lambda n: n.is_picked, car_list)):
                 self.is_picked = True
                 self.is_placed = False
-                self.on_whiteboard = False
+                self.is_on_whiteboard = False
         else:
-            if (not pygame.mouse.get_pressed()[0]) and (not self.on_whiteboard):
+            if (not pygame.mouse.get_pressed()[0]) and (not self.is_on_whiteboard):
                 self.is_picked = False
                 self.is_placed = True
 
                 if self.main_rect.colliderect(ground) and car_surf.is_expended and not self.is_placed:
-                    self.on_whiteboard = True
+                    self.is_on_whiteboard = True
                 else:
-                    self.on_whiteboard = False
+                    self.is_on_whiteboard = False
 
         if self.is_picked:
             self.main_rect.center = pygame.mouse.get_pos()
@@ -216,17 +215,17 @@ class Car:
         if self.is_placed:
             self.place_closest()
             self.update_rects()
+            self.is_placed = False  # temp
             for i in car_list:
-                if not i.main_rect == self.main_rect and i.is_placed:
+                if i.is_placed:
                     for j in self.rects:
-                        if any(j.colliderect(k) for k in i.rects) or j.colliderect(i.main_rect):
-                            self.remove()
-                        if any(self.main_rect.colliderect(k) for k in i.rects) or\
-                                self.main_rect.colliderect(i.main_rect):
-                            self.remove()
+                        if (any(j.colliderect(k) for k in i.rects) or j.colliderect(
+                                i.main_rect)) and self.number != i.number:
+                           pass
+            self.is_placed = True
 
-        if self.on_whiteboard:
-            self.remove()
+        if self.is_on_whiteboard:
+            self.move_to_board()
 
         self.update_rects()
 
@@ -238,8 +237,6 @@ class Car:
                 if rect.colliderect(tile):
                     res.append(grid.index(tile))
         res = list(map(lambda n: [n // 6, n % 6], res))
-        if res is None:
-            print(1)
         return res
 
     def update_rects(self):
@@ -247,7 +244,7 @@ class Car:
             self.rects[index].x, self.rects[index].y = self.main_rect.x, self.main_rect.y
             exec(f'self.rects[index].{item[0]}=self.main_rect.{item[1]}')
 
-    def remove(self):
+    def move_to_board(self):
         self.is_placed = False
         # self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number) если сломаются анимации
         if self.main_rect.y <= screen_h + 100 and not car_surf.is_expended:
@@ -276,7 +273,7 @@ class Car:
                 self.check_boundary()
                 return
         self.is_placed = False
-        self.on_whiteboard = True
+        self.is_on_whiteboard = True
 
     def rotate(self, step):
         if self.is_picked:
@@ -290,7 +287,7 @@ class Car:
     def check_boundary(self):
         for rect in self.rects:
             if not rect.colliderect(ground):
-                self.is_placed, self.on_whiteboard = False, True
+                self.is_placed, self.is_on_whiteboard = False, True
 
 
 if __name__ == "__main__":
