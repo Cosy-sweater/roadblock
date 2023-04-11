@@ -49,6 +49,14 @@ def show_menu():
 
 
 def start_level(level=1):
+    def check_solved():
+        global popup
+        if len(curent_tiles) != 36:
+            popup = Popup()
+            return
+
+        pass
+
     global car_surf, car_list
     house_list = []
     car_list = []
@@ -66,6 +74,8 @@ def start_level(level=1):
 
     for num, key in enumerate(cars):
         car_list.append(Car(cars[f'car{num + 1}'], num + 1, car_places[num]))
+
+    submit_button = Btn(command=check_solved)
 
     while True:
         curent_tiles = ocupied_tiles.copy()
@@ -90,6 +100,10 @@ def start_level(level=1):
                     car.is_placed = False
                     car.move_to_board()
                     flag = True
+            if not flag:
+                curent_tiles.extend(car_tiles)
+
+        submit_button.update()
 
         # Draw.
         #  bottom level
@@ -110,6 +124,10 @@ def start_level(level=1):
             if car.is_picked:
                 last = car
         last.draw() if last else None
+        submit_button.draw()
+
+        if "popup" in globals():
+            popup.update()
 
         pygame.display.flip()
         fpsClock.tick(fps)
@@ -203,7 +221,6 @@ class Car:
             if (not pygame.mouse.get_pressed()[0]) and (not self.is_on_whiteboard):
                 self.is_picked = False
                 self.is_placed = True
-
                 if self.main_rect.colliderect(ground) and car_surf.is_expended and not self.is_placed:
                     self.is_on_whiteboard = True
                 else:
@@ -215,14 +232,11 @@ class Car:
         if self.is_placed:
             self.place_closest()
             self.update_rects()
-            self.is_placed = False  # temp
             for i in car_list:
-                if i.is_placed:
-                    for j in self.rects:
-                        if (any(j.colliderect(k) for k in i.rects) or j.colliderect(
-                                i.main_rect)) and self.number != i.number:
-                           pass
-            self.is_placed = True
+                if i.is_placed and i.number != self.number:
+                    for j in self.get_all_rects():
+                        if (any(j.colliderect(k) for k in i.get_all_rects())) and self.number != i.number:
+                            self.move_to_board()
 
         if self.is_on_whiteboard:
             self.move_to_board()
@@ -245,6 +259,7 @@ class Car:
             exec(f'self.rects[index].{item[0]}=self.main_rect.{item[1]}')
 
     def move_to_board(self):
+        self.is_on_whiteboard = True
         self.is_placed = False
         # self.main_rect.x, self.main_rect.y = car_surf.get_position_of(self.number) если сломаются анимации
         if self.main_rect.y <= screen_h + 100 and not car_surf.is_expended:
@@ -288,6 +303,43 @@ class Car:
         for rect in self.rects:
             if not rect.colliderect(ground):
                 self.is_placed, self.is_on_whiteboard = False, True
+
+    def get_all_rects(self):
+        return self.rects + [self.main_rect]
+
+
+class Btn:
+    def __init__(self, position=(0, 0), size=(50, 50), **kwargs):
+        self.rect = pygame.Rect(position, size)
+        self.kwargs = kwargs
+
+    def update(self):
+        if self.rect.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]:
+            if self.kwargs.get("command"):
+                self.kwargs["command"]()
+
+    def draw(self):
+        pygame.draw.rect(screen, (30, 130, 0), self.rect)
+
+
+class Popup:
+    def __init__(self, title="title", text="text", **kwargs):
+        self.title, self.text = title, text
+        self.kwargs = kwargs
+
+        self.is_shown = True
+        self.not_expanded = True
+        self.curent_frame = 0
+
+        # self.temp = pygame.Rect()
+
+    def update(self):
+        if self.not_expanded:
+            self.curent_frame += 1
+
+        if not self.is_shown:
+            del self
+
 
 
 if __name__ == "__main__":
