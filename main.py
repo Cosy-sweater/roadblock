@@ -1,6 +1,8 @@
 import sys
 import json
 
+import level_solver
+
 import pygame
 from pygame.locals import *
 
@@ -51,11 +53,27 @@ def show_menu():
 def start_level(level=1):
     def check_solved():
         global popup
-        if len(curent_tiles) != 36:
+        if len(curent_tiles) != 36 and False:
             popup = Popup()
             return
 
-        pass
+        maze_walls = ocupied_tiles.copy()[1:]
+        for car in car_list:
+            maze_walls.append(car.get_car_position())
+
+        maze = [[None for j in range(6)] for i in range(6)]
+        for row in range(6):
+            for column in range(6):
+                if [row, column] in maze_walls:
+                    maze[column][row] = "w"
+                else:
+                    maze[column][row] = "c"
+        a = ocupied_tiles[0]
+        maze[a[1]][a[0]] = "r"
+
+        result = level_solver.run(maze)
+        if not result[0]:
+            sys.exit("Победа")
 
     global car_surf, car_list
     house_list = []
@@ -75,14 +93,15 @@ def start_level(level=1):
     for num, key in enumerate(cars):
         car_list.append(Car(cars[f'car{num + 1}'], num + 1, car_places[num]))
 
-    submit_button = Btn(command=check_solved)
+    submit_button = Btn(command=check_solved, position=(1600, screen_h / 2 - 90), size=(100, 100))
+    exit_button = Btn(command=sys.exit, position=(1820, 0), size=(100, 100), color=(255, 0, 0))
 
     while True:
         curent_tiles = ocupied_tiles.copy()
         screen.fill((0, 0, 0))
 
         for event in pygame.event.get():
-            if event.type == QUIT or pygame.mouse.get_pos() >= (1920 - 2, 1080 - 2):
+            if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.MOUSEWHEEL:
@@ -104,6 +123,7 @@ def start_level(level=1):
                 curent_tiles.extend(car_tiles)
 
         submit_button.update()
+        exit_button.update()
 
         # Draw.
         #  bottom level
@@ -114,6 +134,7 @@ def start_level(level=1):
 
         #  mid level
         [car.draw() for car in car_list]
+        submit_button.draw()
         car_surf.draw()
 
         # top level
@@ -124,10 +145,11 @@ def start_level(level=1):
             if car.is_picked:
                 last = car
         last.draw() if last else None
-        submit_button.draw()
 
         if "popup" in globals():
             popup.update()
+
+        exit_button.draw()
 
         pygame.display.flip()
         fpsClock.tick(fps)
@@ -307,11 +329,23 @@ class Car:
     def get_all_rects(self):
         return self.rects + [self.main_rect]
 
+    def get_car_position(self):
+        a = -1
+        car = self.rects[self.car_pos] if self.car_pos != -1 else self.main_rect
+        for tile in grid:
+            if car.colliderect(tile):
+                a = grid.index(tile)
+        res = [a // 6, a % 6]
+        return res
+
 
 class Btn:
     def __init__(self, position=(0, 0), size=(50, 50), **kwargs):
         self.rect = pygame.Rect(position, size)
         self.kwargs = kwargs
+        self.rect_color = self.kwargs.get("color")
+        if not self.rect_color:
+            self.rect_color = (100, 255, 0)
 
     def update(self):
         if self.rect.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]:
@@ -319,7 +353,7 @@ class Btn:
                 self.kwargs["command"]()
 
     def draw(self):
-        pygame.draw.rect(screen, (30, 130, 0), self.rect)
+        pygame.draw.rect(screen, self.rect_color, self.rect)
 
 
 class Popup:
@@ -339,7 +373,6 @@ class Popup:
 
         if not self.is_shown:
             del self
-
 
 
 if __name__ == "__main__":
