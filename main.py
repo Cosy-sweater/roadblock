@@ -7,12 +7,15 @@ import pygame
 from pygame.locals import *
 
 pygame.init()
+pygame.font.init()
 
 fps = 60
 fpsClock = pygame.time.Clock()
 
 width, height = 1920, 1080
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)  # , pygame.FULLSCREEN)
+
+font1 = pygame.font.SysFont('Comic Sans MS', 30)
 
 houses = {"house1": [[0, 0], [-1, 0], [1, 0]],
           "house2": [[0, 0], [0, -1], [1, -1], [0, 1]],
@@ -47,13 +50,46 @@ def rotate(data, step=1):
 
 
 def show_menu():
-    start_level(1)
+    exit_button = Btn(command=sys.exit, position=(1870, 0), size=(50, 50), color=(255, 0, 0))
+    play_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 200), text="Играть", text_align="center", command=start_level)
+    levels_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 400), text="Уровни", text_align="сenter")
+    info_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 600), text="Инфо", text_align="сenter")
+
+    curent_page = 0
+    while True:
+        screen.fill((0, 0, 0))
+
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                play_button.update()
+                levels_button.update()
+                info_button.update()
+                exit_button.update()
+
+        # Update.
+        if curent_page == 0:
+            pass
+
+        # Draw.
+        exit_button.draw()
+        if curent_page == 0:
+            play_button.draw()
+            levels_button.draw()
+            info_button.draw()
+
+        pygame.display.flip()
+        fpsClock.tick(fps)
+
+    # start_level(1)
 
 
 def start_level(level=1):
     def check_solved():
         global popup
-        if len(curent_tiles) != 36 and False:
+        if len(curent_tiles) != 36:
             popup = Popup()
             return
 
@@ -72,12 +108,19 @@ def start_level(level=1):
         maze[a[1]][a[0]] = "r"
 
         result = level_solver.run(maze)
+        print(result)
         if not result[0]:
-            sys.exit("Победа")
+            raise FunctionExit
+        else:
+            if not path_rects:
+                for tile in result[1]:
+                    path_rects.append(PathRect(get_ground_position(*tile[::-1])))
 
     global car_surf, car_list
     house_list = []
     car_list = []
+    path_rects = []
+
     with open(f"levels/level_{level}.json", "r") as f:
         json_data = json.load(f)
     for i in json_data:
@@ -94,11 +137,13 @@ def start_level(level=1):
         car_list.append(Car(cars[f'car{num + 1}'], num + 1, car_places[num]))
 
     submit_button = Btn(command=check_solved, position=(1600, screen_h / 2 - 90), size=(100, 100))
-    exit_button = Btn(command=sys.exit, position=(1820, 0), size=(100, 100), color=(255, 0, 0))
+    exit_button = Btn(command=sys.exit, position=(1870, 0), size=(50, 50), color=(255, 0, 0))
 
     while True:
         curent_tiles = ocupied_tiles.copy()
         screen.fill((0, 0, 0))
+
+        clicked = False
 
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -106,6 +151,8 @@ def start_level(level=1):
                 sys.exit()
             if event.type == pygame.MOUSEWHEEL:
                 [car.rotate(event.y * -1) for car in car_list]  # * settings["rotation_direction"]
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                clicked = True
 
         # Update.
         car_surf.update()
@@ -122,8 +169,15 @@ def start_level(level=1):
             if not flag:
                 curent_tiles.extend(car_tiles)
 
-        submit_button.update()
-        exit_button.update()
+            if clicked:
+                exit_button.update()
+                try:
+                    submit_button.update()
+                except FunctionExit:
+                    return
+
+        if len(curent_tiles) != 36:
+            path_rects.clear()
 
         # Draw.
         #  bottom level
@@ -145,6 +199,8 @@ def start_level(level=1):
             if car.is_picked:
                 last = car
         last.draw() if last else None
+
+        [i.draw() for i in path_rects]
 
         if "popup" in globals():
             popup.update()
@@ -301,7 +357,7 @@ class Car:
             if index == self.car_pos and self.car_pos != -1:
                 pygame.draw.rect(screen, (30, 30, 120), item)
             else:
-                pygame.draw.rect(screen, (50, 120, 255), item)
+                pygame.draw.rect(screen, (50, 120, 230), item)
 
     def place_closest(self):
         for tile in grid:
@@ -339,21 +395,71 @@ class Car:
         return res
 
 
+class PathRect:
+    def __init__(self, position=(0, 0), **kwargs):
+        self.rect = pygame.Rect(position, [TILE_SIZE] * 2)
+        self.surf = pygame.Surface([TILE_SIZE] * 2)
+        self.surf.fill((255, 20, 20))
+        self.surf.set_alpha(80)
+
+    def draw(self):
+        screen.blit(self.surf, self.rect)
+
+
+class FunctionExit(Exception):
+    pass
+
+
 class Btn:
     def __init__(self, position=(0, 0), size=(50, 50), **kwargs):
+        self.is_hiden = False
         self.rect = pygame.Rect(position, size)
         self.kwargs = kwargs
         self.rect_color = self.kwargs.get("color")
+        self.text = kwargs.get("text")
+        self.text_align = kwargs.get("text_align", "topleft")
         if not self.rect_color:
             self.rect_color = (100, 255, 0)
 
+        if self.text:
+            self.text = font1.render(self.text, False, (0, 0, 0))
+
     def update(self):
-        if self.rect.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]:
+        if self.rect.collidepoint(pygame.mouse.get_pos()):
             if self.kwargs.get("command"):
                 self.kwargs["command"]()
 
+    def hide(self):
+        self.is_hiden = True
+
+    def show(self):
+        self.is_hiden = False
+
     def draw(self):
+        if self.is_hiden:
+            return
         pygame.draw.rect(screen, self.rect_color, self.rect)
+        if self.text:
+            screen.blit(self.text, self.get_text_position())
+
+    def get_text_position(self):
+        x_d = self.text.get_width() / 2
+        y_d = self.text.get_height() / 2
+        if self.text_align == "center":
+            pos = list(self.rect.center)
+            pos[0] -= x_d
+            pos[1] -= y_d
+        elif self.text_align in ["left", "right"]:
+            pos = [eval(f'self.rect.{self.text_align}'), 0]
+            pos[1] = self.rect.center[1] - y_d
+            if self.text_align == "left":
+                pos[0] += x_d
+            else:
+                pos[0] -= x_d
+        else:
+            self.text_align = "center"
+            pos = self.get_text_position()
+        return pos
 
 
 class Popup:
@@ -375,15 +481,15 @@ class Popup:
             del self
 
 
-if __name__ == "__main__":
-    grid = []
-    ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
-    ground_pos = list(screen.get_rect().center)
-    ground_pos[1] -= 50
-    ground.center = ground_pos
-    for x in range(6):
-        for y in range(6):
-            x_pos, y_pos = get_ground_position(x, y)
-            grid.append(pygame.Rect((x_pos, y_pos), [TILE_SIZE] * 2))
+grid = []
+ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
+ground_pos = list(screen.get_rect().center)
+ground_pos[1] -= 50
+ground.center = ground_pos
+for x in range(6):
+    for y in range(6):
+        x_pos, y_pos = get_ground_position(x, y)
+        grid.append(pygame.Rect((x_pos, y_pos), [TILE_SIZE] * 2))
 
-    show_menu()
+# start_level(1)
+show_menu()
