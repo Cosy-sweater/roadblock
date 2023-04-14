@@ -6,6 +6,9 @@ import level_solver
 import pygame
 from pygame.locals import *
 
+if __name__ != "__main__":
+    sys.exit()
+
 pygame.init()
 pygame.font.init()
 
@@ -51,9 +54,13 @@ def rotate(data, step=1):
 
 def show_menu():
     exit_button = Btn(command=sys.exit, position=(1870, 0), size=(50, 50), color=(255, 0, 0))
-    play_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 200), text="Играть", text_align="center", command=start_level)
-    levels_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 400), text="Уровни", text_align="сenter")
-    info_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 600), text="Инфо", text_align="сenter")
+    play_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 170), text="Продолжить", text_align="center",
+                      command=start_level, command_args=[saved_data["max_level"]])
+    levels_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 370), text="Уровни", text_align="сenter")
+    info_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 570), text="Инфо", text_align="сenter")
+
+    mute_button = Btn(size=(150, 150), position=(info_button.rect.left, 770), text="M", bool_state=saved_data["muted"])
+    settings_button = Btn(size=(150, 150), position=(info_button.rect.right - 150, 770), text="S")
 
     curent_page = 0
     while True:
@@ -67,6 +74,8 @@ def show_menu():
                 play_button.update()
                 levels_button.update()
                 info_button.update()
+                mute_button.update()
+                settings_button.update()
                 exit_button.update()
 
         # Update.
@@ -79,6 +88,8 @@ def show_menu():
             play_button.draw()
             levels_button.draw()
             info_button.draw()
+            mute_button.draw()
+            settings_button.draw()
 
         pygame.display.flip()
         fpsClock.tick(fps)
@@ -108,7 +119,6 @@ def start_level(level=1):
         maze[a[1]][a[0]] = "r"
 
         result = level_solver.run(maze)
-        print(result)
         if not result[0]:
             raise FunctionExit
         else:
@@ -213,6 +223,16 @@ def start_level(level=1):
 
 def get_ground_position(x, y):
     return x * TILE_SIZE + ground.topleft[0], y * TILE_SIZE + ground.topleft[1]
+
+
+def save_data():
+    with open("data.json", "w") as f:
+        json.dump(saved_data, f)
+
+
+def read_data():
+    with open("data.json", "r") as f:
+        return json.load(f)
 
 
 class House:
@@ -418,6 +438,7 @@ class Btn:
         self.rect_color = self.kwargs.get("color")
         self.text = kwargs.get("text")
         self.text_align = kwargs.get("text_align", "topleft")
+        self.bool_state = kwargs.get("bool_state")
         if not self.rect_color:
             self.rect_color = (100, 255, 0)
 
@@ -425,9 +446,14 @@ class Btn:
             self.text = font1.render(self.text, False, (0, 0, 0))
 
     def update(self):
+        if self.is_hiden:
+            return
         if self.rect.collidepoint(pygame.mouse.get_pos()):
             if self.kwargs.get("command"):
-                self.kwargs["command"]()
+                if self.kwargs.get("command_args"):
+                    self.kwargs["command"](*self.kwargs.get("command_args"))
+                else:
+                    self.kwargs["command"]()
 
     def hide(self):
         self.is_hiden = True
@@ -461,6 +487,10 @@ class Btn:
             pos = self.get_text_position()
         return pos
 
+    def switch(self):
+        if self.bool_state is not None:
+            self.bool_state = not self.bool_state
+
 
 class Popup:
     def __init__(self, title="title", text="text", **kwargs):
@@ -481,6 +511,8 @@ class Popup:
             del self
 
 
+saved_data = read_data()
+
 grid = []
 ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
@@ -491,5 +523,4 @@ for x in range(6):
         x_pos, y_pos = get_ground_position(x, y)
         grid.append(pygame.Rect((x_pos, y_pos), [TILE_SIZE] * 2))
 
-# start_level(1)
 show_menu()

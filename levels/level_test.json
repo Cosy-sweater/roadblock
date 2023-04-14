@@ -1,7 +1,0 @@
-{
-  "car": [2, 1],
-  "coment": "x_pos, y_pos, rotation",
-  "coment2": "дом1 - прямой, дом2 - г, дом3 - г(обр.), дом4- угол",
-  "house2": [3, 3, 1],
-  "difficulty": [-1, "test"]
-}
