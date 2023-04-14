@@ -62,7 +62,10 @@ def show_menu():
     mute_button = Btn(size=(150, 150), position=(info_button.rect.left, 770), text="M", bool_state=saved_data["muted"])
     settings_button = Btn(size=(150, 150), position=(info_button.rect.right - 150, 770), text="S")
 
-    curent_page = 0
+    curent_page = 1
+    l1 = [play_button, levels_button, info_button, mute_button, settings_button]
+    l2 = []
+    l3 = []
     while True:
         screen.fill((0, 0, 0))
 
@@ -79,17 +82,28 @@ def show_menu():
                 exit_button.update()
 
         # Update.
-        if curent_page == 0:
-            pass
+        if curent_page == 1:
+            [i.show() for i in l1]
+        else:
+            [i.hide() for i in l1]
+        if curent_page == 2:
+            [i.show() for i in l2]
+        else:
+            [i.hide() for i in l2]
+        if curent_page == 3:
+            [i.show() for i in l3]
+        else:
+            [i.hide() for i in l3]
+
 
         # Draw.
         exit_button.draw()
-        if curent_page == 0:
-            play_button.draw()
-            levels_button.draw()
-            info_button.draw()
-            mute_button.draw()
-            settings_button.draw()
+        if curent_page == 1:
+            [i.draw() for i in l1]
+        elif curent_page == 2:
+            [i.draw() for i in l2]
+        elif curent_page == 3:
+            [i.draw() for i in l3]
 
         pygame.display.flip()
         fpsClock.tick(fps)
@@ -231,8 +245,9 @@ def save_data():
 
 
 def read_data():
+    global saved_data
     with open("data.json", "r") as f:
-        return json.load(f)
+        saved_data = json.load(f)
 
 
 class House:
@@ -510,8 +525,17 @@ class Popup:
         if not self.is_shown:
             del self
 
+class LevelButtonsGroup:
+    def __init__(self, levels_range=range(1, 16), bg_color=(255, 255, 255)):
+        self.bg_color = bg_color
+        self.levels = [Btn(text=i, command=start_level, command_args=[i]) for i in levels_range]
+        self.frame = 0
 
-saved_data = read_data()
+    def update(self, clicked=False):
+        pass
+
+
+read_data()
 
 grid = []
 ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
