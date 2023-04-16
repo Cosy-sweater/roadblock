@@ -130,7 +130,6 @@ def show_menu():
                     clicked = False
 
         # Update.
-        print(curent_levels_page)
         if curent_page == 1:
             [i.show() for i in l1]
         else:
@@ -626,7 +625,6 @@ ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
 ground_pos[1] -= 50
 ground.center = ground_pos
-print(TILE_SIZE)
 for x in range(6):
     for y in range(6):
         x_pos, y_pos = get_ground_position(x, y)
