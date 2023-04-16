@@ -33,13 +33,17 @@ cars = {"car1": [("left", "right"), ("right", "left"), ("top", "bottom")],  # T
 car_places = [2, -1, 1, 1, -1, 0]
 next_sides_c = ["left", "top", "right", "bottom"]
 next_sides_e = ["topleft", "topright", "bottomright", "bottomleft"]
-screen_w, screen_h = pygame.display.get_surface().get_size()
-TILE_SIZE = 150 * (screen_w / width)
+screen_w, screen_h = screen.get_size()
+TILE_SIZE = 150 * round(screen_h / height, 1)
 
 
 def close_app():
     pygame.quit()
     sys.exit()
+
+
+def get_proportion(w: float = 1, h: float = 1) -> tuple:
+    return w * round(screen_w / width, 1), h * round(screen_h / height, 1)
 
 
 def rotate(data, step=1):
@@ -58,29 +62,56 @@ def rotate(data, step=1):
 
 
 def show_menu():
+    global curent_page, prev_page
+
     def set_page(n):
-        global curent_page
-        curent_page = n
+        global curent_page, prev_page
+        curent_page, prev_page = n, curent_page
 
-    exit_button = Btn(command=close_app, position=(1870, 0), size=(50, 50), color=(255, 0, 0))
-    play_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 170), text="Продолжить", text_align="center",
+    def change_levels(rev=False):
+        global curent_levels_page
+        try:
+            curent_levels_page += -1 if rev else 1
+        except NameError:
+            curent_levels_page = 1
+
+    exit_button = Btn(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
+                      size=[50 * get_proportion()[0]] * 2,
+                      color=(255, 0, 0))
+    play_button = Btn(size=(450 * get_proportion()[0], 150 * get_proportion()[1]),
+                      position=(screen_w / 2 - 175 * get_proportion()[0], 170 * get_proportion()[1]), text="Продолжить",
+                      text_align="center",
                       command=start_level, command_args=[saved_data["max_level"]])
-    levels_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 370), text="Уровни", text_align="сenter",
-                        command=set_page, command_args=[2])
-    info_button = Btn(size=(450, 150), position=(screen_w / 2 - 175, 570), text="Инфо", text_align="сenter")
+    levels_button = Btn(size=(450 * get_proportion()[0], 150 * get_proportion()[1]),
+                        position=(screen_w / 2 - 175 * get_proportion()[0], 370 * get_proportion()[1]), text="Уровни",
+                        text_align="сenter",
+                        command=set_page, command_args=[2], get_answ=1)
+    info_button = Btn(size=(450 * get_proportion()[0], 150 * get_proportion()[1]),
+                      position=(screen_w / 2 - 175 * get_proportion()[0], 570 * get_proportion()[1]), text="Инфо",
+                      text_align="сenter")
 
-    mute_button = Btn(size=(150, 150), position=(info_button.rect.left, 770), text="M", bool_state=saved_data["muted"])
-    settings_button = Btn(size=(150, 150), position=(info_button.rect.right - 150, 770), text="S")
+    mute_button = Btn(size=(150 * get_proportion()[0], 150 * get_proportion()[1]),
+                      position=(info_button.rect.left, 770 * get_proportion()[1]), text="M",
+                      bool_state=saved_data["muted"])
+    settings_button = Btn(size=(150 * get_proportion()[0], 150 * get_proportion()[1]),
+                          position=(info_button.rect.right - 150 * get_proportion()[0], get_proportion()[1] * 770),
+                          text="S")
+
+    button_next = Btn(command=change_levels)
 
     curent_page = 1
+    prev_page = curent_page
+    curent_levels_page = 1
     l1 = [play_button, levels_button, info_button, mute_button, settings_button]
-    l2 = [LevelButtonsGroup()]
+    l2 = [LevelButtonsGroup(bg_color=(43, 246, 43)), LevelButtonsGroup(bg_color=(229, 223, 26))]
     l3 = []
 
     while True:
         screen.fill((0, 0, 0))
 
         clicked = False
+        if prev_page != curent_page:
+            prev_page = curent_page
 
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -89,13 +120,17 @@ def show_menu():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 clicked = True
                 play_button.update()
-                levels_button.update()
+                resp = levels_button.update()
                 info_button.update()
                 mute_button.update()
                 settings_button.update()
                 exit_button.update()
+                button_next.update()
+                if resp == 1:
+                    clicked = False
 
         # Update.
+        print(curent_levels_page)
         if curent_page == 1:
             [i.show() for i in l1]
         else:
@@ -108,17 +143,19 @@ def show_menu():
             [i.show() for i in l3]
         else:
             [i.hide() for i in l3]
-        l2[0].update(clicked)
+        l2[curent_levels_page - 1].update(clicked if curent_page == prev_page else False)
 
         # Draw.
-        exit_button.draw()
         if curent_page == 1:
             [i.draw() for i in l1]
         elif curent_page == 2:
-            l2[0].draw()
+            l2[curent_levels_page - 1].draw()
             # [i.draw() for i in l2]
         elif curent_page == 3:
             [i.draw() for i in l3]
+        button_next.draw()
+
+        exit_button.draw()
 
         pygame.display.flip()
         fpsClock.tick(fps)
@@ -175,8 +212,8 @@ def start_level(level=1):
     for num, key in enumerate(cars):
         car_list.append(Car(cars[f'car{num + 1}'], num + 1, car_places[num]))
 
-    submit_button = Btn(command=check_solved, position=(1600, screen_h / 2 - 90), size=(100, 100))
-    exit_button = Btn(command=close_app, position=(1870, 0), size=(50, 50), color=(255, 0, 0))
+    submit_button = Btn(command=check_solved, position=(1600 * (screen_w / width), screen_h / 2 - 90), size=(100, 100))
+    exit_button = Btn(command=close_app, position=(screen_w - 50, 0), size=(50, 50), color=(255, 0, 0))
 
     while True:
         curent_tiles = ocupied_tiles.copy()
@@ -461,7 +498,7 @@ class FunctionExit(Exception):
 
 
 class Btn:
-    def __init__(self, position=(0, 0), size=(50, 50), **kwargs):
+    def __init__(self, position=(0, 0), size=(50, 50), get_ansf=False, **kwargs):
         self.is_hiden = False
         self.rect = pygame.Rect(position, size)
         self.kwargs = kwargs
@@ -469,6 +506,7 @@ class Btn:
         self.text = kwargs.get("text")
         self.text_align = kwargs.get("text_align", "topleft")
         self.bool_state = kwargs.get("bool_state")
+        self.get_ansf = get_ansf
         if not self.rect_color:
             self.rect_color = (100, 255, 0)
 
@@ -481,9 +519,14 @@ class Btn:
         if self.rect.collidepoint(pygame.mouse.get_pos()):
             if self.kwargs.get("command"):
                 if self.kwargs.get("command_args"):
-                    self.kwargs["command"](*self.kwargs.get("command_args"))
+                    resp = self.kwargs["command"](*self.kwargs.get("command_args"))
                 else:
-                    self.kwargs["command"]()
+                    resp = self.kwargs["command"]()
+                if self.get_ansf:
+                    if type(self.get_ansf) is bool:
+                        return resp
+                    else:
+                        return self.get_ansf
 
     def hide(self):
         self.is_hiden = True
@@ -543,19 +586,27 @@ class Popup:
 
 class LevelButtonsGroup:
     def __init__(self, levels_range=range(1, 16), bg_color=(255, 255, 255)):
+        def get_button_position(n):
+            return 350 * get_proportion()[0] + ((n - 1) % 4) * 360 * get_proportion()[0], 50 * get_proportion()[1] + (
+                        (n - 1) // 4) * 270 * get_proportion()[1]
+
         self.bg_color = bg_color
-        self.levels = [Btn(text=str(i), command=start_level, command_args=[i]) for i in levels_range]
+        self.levels = [
+            Btn(text=str(i), command=start_level, position=get_button_position(i), size=[150 * get_proportion()[0]] * 2,
+                command_args=[i]) for i in levels_range]
         self.frame = 0
 
         self.bg_origin = pygame.Surface(screen.get_size())
+        self.bg_origin.fill(bg_color)
         self.bg_surf = self.bg_origin
         self.bg_surf.set_alpha(0)
 
     def update(self, clicked=False):
-        if self.frame < 100:
-            self.frame += 1
+        if self.frame <= 200:
+            self.frame += 5
         self.bg_surf = self.bg_origin
         self.bg_surf.set_alpha(self.frame)
+        [button.update() for button in self.levels] if clicked else None
 
     def draw(self):
         screen.blit(self.bg_surf, (0, 0))
@@ -575,6 +626,7 @@ ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
 ground_pos[1] -= 50
 ground.center = ground_pos
+print(TILE_SIZE)
 for x in range(6):
     for y in range(6):
         x_pos, y_pos = get_ground_position(x, y)
