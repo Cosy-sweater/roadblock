@@ -611,6 +611,7 @@ class LevelButtonsGroup:
         [button.update() for button in self.levels] if clicked else None
 
     def draw(self):
+        screen.fill((128, 128, 128))
         screen.blit(self.bg_surf, (0, 0))
         [i.draw() for i in self.levels[self.curent_page * 15:self.curent_page * 15 + 15][::-1]]
 
