@@ -68,13 +68,6 @@ def show_menu():
         global curent_page, prev_page
         curent_page, prev_page = n, curent_page
 
-    def change_levels(rev=False):
-        global curent_levels_page
-        try:
-            curent_levels_page += -1 if rev else 1
-        except NameError:
-            curent_levels_page = 1
-
     exit_button = Btn(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
                       size=[50 * get_proportion()[0]] * 2,
                       color=(255, 0, 0))
@@ -97,17 +90,21 @@ def show_menu():
                           position=(info_button.rect.right - 150 * get_proportion()[0], get_proportion()[1] * 770),
                           text="S")
 
-    button_next = Btn(command=change_levels)
-
     curent_page = 1
     prev_page = curent_page
     curent_levels_page = 1
     l1 = [play_button, levels_button, info_button, mute_button, settings_button]
-    l2 = [LevelButtonsGroup(bg_color=(43, 246, 43)), LevelButtonsGroup(bg_color=(229, 223, 26))]
+    l2 = [LevelButtonsGroup()]
+    l2[0].draw()
     l3 = []
 
+    button_next = Btn(command=l2[0].next, position=(screen_w - 50, screen_h // 2), text=">")
+    button_prev = Btn(command=l2[0].prev, position=(0, screen_h // 2), text="<")
+    l2.append(button_prev)
+    l2.append(button_next)
+
     while True:
-        screen.fill((0, 0, 0))
+        screen.fill((128, 128, 128))
 
         clicked = False
         if prev_page != curent_page:
@@ -126,6 +123,7 @@ def show_menu():
                 settings_button.update()
                 exit_button.update()
                 button_next.update()
+                button_prev.update()
                 if resp == 1:
                     clicked = False
 
@@ -148,11 +146,11 @@ def show_menu():
         if curent_page == 1:
             [i.draw() for i in l1]
         elif curent_page == 2:
-            l2[curent_levels_page - 1].draw()
-            # [i.draw() for i in l2]
+            [i.draw() for i in l2]
         elif curent_page == 3:
             [i.draw() for i in l3]
-        button_next.draw()
+        # button_next.draw()
+        # button_prev.draw()
 
         exit_button.draw()
 
@@ -584,38 +582,54 @@ class Popup:
 
 
 class LevelButtonsGroup:
-    def __init__(self, levels_range=range(1, 16), bg_color=(255, 255, 255)):
+    def __init__(self):
         def get_button_position(n):
-            return 350 * get_proportion()[0] + ((n - 1) % 4) * 360 * get_proportion()[0], 50 * get_proportion()[1] + (
-                        (n - 1) // 4) * 270 * get_proportion()[1]
+            return 350 * get_proportion()[0] + ((n - 1) % 15 % 4) * 360 * get_proportion()[0], 50 * get_proportion()[
+                1] + (
+                           (n - 1) % 15 // 4) * 270 * get_proportion()[1]
 
-        self.bg_color = bg_color
+        self.bg_colors = [(117, 252, 19), (255, 235, 0), (221, 31, 10), (18, 47, 232)]
         self.levels = [
-            Btn(text=str(i), command=start_level, position=get_button_position(i), size=[150 * get_proportion()[0]] * 2,
-                command_args=[i]) for i in levels_range]
+            Btn(text=str(i), color=self.bg_colors[(i - 1) // 15], command=start_level, position=get_button_position(i),
+                size=[150 * get_proportion()[0]] * 2,
+                command_args=[i]) for i in range(1, 61)]
         self.frame = 0
 
-        self.bg_origin = pygame.Surface(screen.get_size())
-        self.bg_origin.fill(bg_color)
-        self.bg_surf = self.bg_origin
+        self.curent_page = 0
+
+        # self.bg_origin = pygame.Surface(screen.get_size())
+        # self.bg_origin.fill(self.bg_colors[self.curent_page])
+        self.bg_surf = pygame.Surface(screen.get_size())
         self.bg_surf.set_alpha(0)
 
     def update(self, clicked=False):
-        if self.frame <= 200:
-            self.frame += 5
-        self.bg_surf = self.bg_origin
+        self.bg_surf.fill(self.bg_colors[self.curent_page])
+        if self.frame <= 150:
+            self.frame += 6
+        # self.bg_surf = self.bg_origin
         self.bg_surf.set_alpha(self.frame)
         [button.update() for button in self.levels] if clicked else None
 
     def draw(self):
         screen.blit(self.bg_surf, (0, 0))
-        [i.draw() for i in self.levels]
+        [i.draw() for i in self.levels[self.curent_page * 15:self.curent_page * 15 + 15][::-1]]
 
     def hide(self):
         pass
 
     def show(self):
         pass
+
+    def next(self):
+        self.curent_page += 1
+        self.curent_page %= 4
+        self.frame = 0
+
+    def prev(self):
+        self.curent_page -= 1
+        if self.curent_page < 0:
+            self.curent_page = 3
+        self.frame = 0
 
 
 read_data()
