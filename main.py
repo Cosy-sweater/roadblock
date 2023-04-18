@@ -32,7 +32,7 @@ def rotate(data, step=1):
             temp = next_sides_e[temp[0]], next_sides_e[temp[1]]
         res.append(temp)
 
-    return res
+    return res, 0
 
 
 def show_menu():
