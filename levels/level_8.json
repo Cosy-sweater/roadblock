@@ -1,0 +1,8 @@
+{
+  "car": [2, 3],
+  "house1": [1, 0, 0],
+  "house2": [0, 2, 0],
+  "house3": [2, 4, 1],
+  "house4": [5, 1, 1],
+  "difficulty": [8, "starter"]
+}
