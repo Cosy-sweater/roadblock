@@ -616,10 +616,10 @@ class LevelButtonsGroup:
         [i.draw() for i in self.levels[self.curent_page * 15:self.curent_page * 15 + 15][::-1]]
 
     def hide(self):
-        pass
+        [button.hide() for button in self.levels]
 
     def show(self):
-        pass
+        [button.show() for button in self.levels]
 
     def next(self):
         self.curent_page += 1
