@@ -496,13 +496,13 @@ class FunctionExit(Exception):
 
 class Btn:
     def __init__(self, position=(0, 0), size=(50, 50), get_ansf=False, **kwargs):
+        self.kwargs = kwargs.copy()
         self.is_hiden = False
         self.rect = pygame.Rect(position, size)
-        self.kwargs = kwargs
         self.rect_color = self.kwargs.get("color")
-        self.text = kwargs.get("text")
-        self.text_align = kwargs.get("text_align", "topleft")
-        self.bool_state = kwargs.get("bool_state")
+        self.text = self.kwargs.get("text")
+        self.text_align = self.kwargs.get("text_align", "topleft")
+        self.bool_state = self.kwargs.get("bool_state")
         self.get_ansf = get_ansf
         if not self.rect_color:
             self.rect_color = (100, 255, 0)
@@ -592,7 +592,7 @@ class LevelButtonsGroup:
         self.levels = [
             Btn(text=str(i), color=self.bg_colors[(i - 1) // 15], command=start_level, position=get_button_position(i),
                 size=[150 * get_proportion()[0]] * 2,
-                command_args=[i]) for i in range(1, 61)]
+                command_args=(i,)) for i in range(1, 61)]
         self.frame = 0
 
         self.curent_page = 0
@@ -608,7 +608,7 @@ class LevelButtonsGroup:
             self.frame += 6
         # self.bg_surf = self.bg_origin
         self.bg_surf.set_alpha(self.frame)
-        [button.update() for button in self.levels] if clicked else None
+        [button.update() for button in self.levels[self.curent_page*15:self.curent_page*15+16]] if clicked else None
 
     def draw(self):
         screen.fill((128, 128, 128))
@@ -631,7 +631,6 @@ class LevelButtonsGroup:
         if self.curent_page < 0:
             self.curent_page = 3
         self.frame = 0
-
 
 read_data()
 
