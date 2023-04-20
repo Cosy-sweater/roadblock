@@ -58,7 +58,7 @@ def rotate(data, step=1):
             temp = next_sides_e[temp[0]], next_sides_e[temp[1]]
         res.append(temp)
 
-    return res, 0
+    return res
 
 
 def show_menu():
@@ -70,7 +70,7 @@ def show_menu():
 
     exit_button = Btn(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
                       size=[50 * get_proportion()[0]] * 2,
-                      color=(255, 0, 0))
+                      color=(255, 0, 0), text="X")
     play_button = Btn(size=(450 * get_proportion()[0], 150 * get_proportion()[1]),
                       position=(screen_w / 2 - 175 * get_proportion()[0], 170 * get_proportion()[1]), text="Продолжить",
                       text_align="center",
@@ -210,7 +210,7 @@ def start_level(level=1):
         car_list.append(Car(cars[f'car{num + 1}'], num + 1, car_places[num]))
 
     submit_button = Btn(command=check_solved, position=(1600 * (screen_w / width), screen_h / 2 - 90), size=(100, 100))
-    exit_button = Btn(command=close_app, position=(screen_w - 50, 0), size=(50, 50), color=(255, 0, 0))
+    exit_button = Btn(command=close_app, position=(screen_w - 50, 0), size=(50, 50), color=(255, 0, 0), text="X")
 
     while True:
         curent_tiles = ocupied_tiles.copy()
