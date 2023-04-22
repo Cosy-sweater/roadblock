@@ -1,5 +1,6 @@
 import sys
 import json
+from pathlib import Path
 
 import level_solver
 
@@ -161,6 +162,9 @@ def show_menu():
 
 
 def start_level(level=1):
+    with open(f"{Path.cwd()}/levels/level_{level}.json", "r") as f:
+        json_data = json.load(f)
+
     def check_solved():
         global popup
         if len(curent_tiles) != 36:
@@ -189,13 +193,12 @@ def start_level(level=1):
                 for tile in result[1]:
                     path_rects.append(PathRect(get_ground_position(*tile[::-1])))
 
-    global car_surf, car_list
+    global car_surf, car_list, hint_rects
     house_list = []
     car_list = []
     path_rects = []
+    hints = Hints(json_data["solution"])
 
-    with open(f"levels/level_{level}.json", "r") as f:
-        json_data = json.load(f)
     for i in json_data:
         if "house" in i:
             house_list.append(House(json_data[i], houses[i]))
@@ -211,6 +214,7 @@ def start_level(level=1):
 
     submit_button = Btn(command=check_solved, position=(1600 * (screen_w / width), screen_h / 2 - 90), size=(100, 100))
     exit_button = Btn(command=close_app, position=(screen_w - 50, 0), size=(50, 50), color=(255, 0, 0), text="X")
+    hint_button = Btn(command=hints.solve)
 
     while True:
         curent_tiles = ocupied_tiles.copy()
@@ -242,12 +246,13 @@ def start_level(level=1):
             if not flag:
                 curent_tiles.extend(car_tiles)
 
-            if clicked:
-                exit_button.update()
-                try:
-                    submit_button.update()
-                except FunctionExit:
-                    return
+        if clicked:
+            exit_button.update()
+            hint_button.update()
+            try:
+                submit_button.update()
+            except FunctionExit:
+                return
 
         if len(curent_tiles) != 36:
             path_rects.clear()
@@ -278,6 +283,7 @@ def start_level(level=1):
         if "popup" in globals():
             popup.update()
 
+        hint_button.draw()
         exit_button.draw()
 
         pygame.display.flip()
@@ -289,13 +295,13 @@ def get_ground_position(x, y):
 
 
 def save_data():
-    with open("data.json", "w") as f:
+    with open(f"{Path.cwd()}/data.json", "w") as f:
         json.dump(saved_data, f)
 
 
 def read_data():
     global saved_data
-    with open("data.json", "r") as f:
+    with open(f"{Path.cwd()}/data.json", "r") as f:
         saved_data = json.load(f)
 
 
@@ -364,6 +370,7 @@ class Car:
         self.is_placed = False
         self.is_picked = False
         self.is_on_whiteboard = True
+        self.rotation = 0
 
         self.rects = [pygame.Rect((0, 0), [TILE_SIZE] * 2) for _ in range(len(data))]
         self.main_rect = pygame.Rect(car_surf.get_position_of(self.number), [TILE_SIZE] * 2)
@@ -452,13 +459,15 @@ class Car:
         self.is_placed = False
         self.is_on_whiteboard = True
 
-    def rotate(self, step):
+    def rotate(self, step: int):
+        self.rotation += step
         if self.is_picked:
             self.data = rotate(self.data, step)
 
         self.update_rects()
 
     def reset_rotation(self):
+        self.rotation = 0
         self.data = cars[f'car{self.number}']
 
     def check_boundary(self):
@@ -469,21 +478,25 @@ class Car:
     def get_all_rects(self):
         return self.rects + [self.main_rect]
 
-    def get_car_position(self):
+    def get_car_position(self, main_rect=False):
         a = -1
         car = self.rects[self.car_pos] if self.car_pos != -1 else self.main_rect
+        if main_rect:
+            car = self.main_rect
         for tile in grid:
             if car.colliderect(tile):
                 a = grid.index(tile)
         res = [a // 6, a % 6]
+        if main_rect:
+            res.append(self.rotation)
         return res
 
 
 class PathRect:
-    def __init__(self, position=(0, 0), **kwargs):
+    def __init__(self, position=(0, 0), color: tuple = (255, 20, 20)):
         self.rect = pygame.Rect(position, [TILE_SIZE] * 2)
         self.surf = pygame.Surface([TILE_SIZE] * 2)
-        self.surf.fill((255, 20, 20))
+        self.surf.fill(color)
         self.surf.set_alpha(80)
 
     def draw(self):
@@ -608,7 +621,8 @@ class LevelButtonsGroup:
             self.frame += 6
         # self.bg_surf = self.bg_origin
         self.bg_surf.set_alpha(self.frame)
-        [button.update() for button in self.levels[self.curent_page*15:self.curent_page*15+16]] if clicked else None
+        [button.update() for button in
+         self.levels[self.curent_page * 15:self.curent_page * 15 + 16]] if clicked else None
 
     def draw(self):
         screen.fill((128, 128, 128))
@@ -631,6 +645,36 @@ class LevelButtonsGroup:
         if self.curent_page < 0:
             self.curent_page = 3
         self.frame = 0
+
+
+class Hints:
+    def __init__(self, data):
+        self.data = data
+        self.hint_rects = []
+
+    def get_hint(self):
+        for index, car in enumerate(car_list):
+            if car.is_placed:
+                if car.get_car_position(main_rect=True) != self.data[f'car{index + 1}']:
+                    print(1)
+                    print()
+                    break
+
+    def draw_ghost_car(self, number, rotation, position, old_position):
+        pass
+
+    def solve(self):
+        for index, car in enumerate(car_list):
+            car.reset_rotation()
+            car.is_picked = True
+            car.rotate(self.data[f'car{index + 1}'][-1])
+            car.main_rect.topleft = get_ground_position(*self.data[f'car{index + 1}'][:-1])
+            car.place_closest()
+            car.is_placed = True
+            car.is_on_whiteboard = False
+            car.is_picked = False
+            car.update_rects()
+
 
 read_data()
 
