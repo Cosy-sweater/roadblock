@@ -166,9 +166,7 @@ def start_level(level=1):
         json_data = json.load(f)
 
     def check_solved():
-        global popup
         if len(curent_tiles) != 36:
-            popup = Popup()
             return
 
         maze_walls = ocupied_tiles.copy()[1:]
@@ -214,7 +212,7 @@ def start_level(level=1):
 
     submit_button = Btn(command=check_solved, position=(1600 * (screen_w / width), screen_h / 2 - 90), size=(100, 100))
     exit_button = Btn(command=close_app, position=(screen_w - 50, 0), size=(50, 50), color=(255, 0, 0), text="X")
-    hint_button = Btn(command=hints.solve)
+    hint_button = Btn(command=hints.get_hint)
 
     while True:
         curent_tiles = ocupied_tiles.copy()
@@ -233,6 +231,7 @@ def start_level(level=1):
 
         # Update.
         car_surf.update()
+        hints.update()
         for car in car_list:
             car_tiles = car.update()
             if car_tiles is None:
@@ -267,6 +266,7 @@ def start_level(level=1):
         #  mid level
         [car.draw() for car in car_list]
         submit_button.draw()
+        hints.draw()
         car_surf.draw()
 
         # top level
@@ -280,8 +280,6 @@ def start_level(level=1):
 
         [i.draw() for i in path_rects]
 
-        if "popup" in globals():
-            popup.update()
 
         hint_button.draw()
         exit_button.draw()
@@ -478,7 +476,7 @@ class Car:
     def get_all_rects(self):
         return self.rects + [self.main_rect]
 
-    def get_car_position(self, main_rect=False):
+    def get_car_position(self, main_rect=False, fix_y=False, get_rotation=False):
         a = -1
         car = self.rects[self.car_pos] if self.car_pos != -1 else self.main_rect
         if main_rect:
@@ -487,8 +485,10 @@ class Car:
             if car.colliderect(tile):
                 a = grid.index(tile)
         res = [a // 6, a % 6]
-        if main_rect:
+        if get_rotation:
             res.append(self.rotation)
+        if fix_y:
+            res[1] -= 1
         return res
 
 
@@ -651,17 +651,48 @@ class Hints:
     def __init__(self, data):
         self.data = data
         self.hint_rects = []
+        self.ghost_car = None
+        self.surf = pygame.Surface([TILE_SIZE] * 2)
+        self.surf.fill((150, 255, 150))
+        self.surf.set_alpha(200)
 
     def get_hint(self):
+        if self.ghost_car:
+            return
+        self.reset()
         for index, car in enumerate(car_list):
+            c_data = self.data[f'car{index + 1}']
             if car.is_placed:
-                if car.get_car_position(main_rect=True) != self.data[f'car{index + 1}']:
-                    print(1)
-                    print()
+                if car.get_car_position(main_rect=True) != c_data[:-1]:
+                    print(car.get_car_position())
+                    self.ghost_car = self.get_ghost_car(index + 1, c_data[-1], get_ground_position(*c_data[:-1]),
+                                                        None)
                     break
 
-    def draw_ghost_car(self, number, rotation, position, old_position):
-        pass
+    def get_ghost_car(self, number, rotation, position, old_position):
+        center_rect = pygame.Rect(position, [TILE_SIZE] * 2)
+        data = cars[f'car{number}']
+        data = rotate(data, rotation)
+        other_rects = [center_rect.copy() for i in range(len(data))]
+        for index, item in enumerate(data):
+            other_rects[index].x, other_rects[index].y = center_rect.x, center_rect.y
+            exec(f'other_rects[index].{item[0]}=center_rect.{item[1]}')
+        return other_rects + [center_rect]
+
+    def update(self):
+        for index, car in enumerate(car_list):
+            c_data = self.data[f'car{index + 1}']
+            if car.is_placed:
+                if car.get_car_position(main_rect=True, fix_y=True, get_rotation=True) != c_data[:-1]:
+                    return
+        self.reset()
+
+
+    def draw(self):
+        if self.ghost_car is None:
+            return
+        for i in self.ghost_car:
+            screen.blit(self.surf, i)
 
     def solve(self):
         for index, car in enumerate(car_list):
@@ -674,6 +705,9 @@ class Hints:
             car.is_on_whiteboard = False
             car.is_picked = False
             car.update_rects()
+
+    def reset(self):
+        self.ghost_car = None
 
 
 read_data()
