@@ -280,7 +280,6 @@ def start_level(level=1):
 
         [i.draw() for i in path_rects]
 
-
         hint_button.draw()
         exit_button.draw()
 
@@ -459,6 +458,10 @@ class Car:
 
     def rotate(self, step: int):
         self.rotation += step
+        if self.rotation < 0:
+            self.rotation += 3
+        if self.rotation == 4:
+            self.rotation = 0
         if self.is_picked:
             self.data = rotate(self.data, step)
 
@@ -649,7 +652,9 @@ class LevelButtonsGroup:
 
 class Hints:
     def __init__(self, data):
-        self.data = data
+        self.ghost_car_data = None
+        self.ghost_car_number = None
+        self.data = data.copy()
         self.hint_rects = []
         self.ghost_car = None
         self.surf = pygame.Surface([TILE_SIZE] * 2)
@@ -657,19 +662,20 @@ class Hints:
         self.surf.set_alpha(200)
 
     def get_hint(self):
+        self.update(prints=True)
         if self.ghost_car:
+            print(1)
             return
-        self.reset()
         for index, car in enumerate(car_list):
             c_data = self.data[f'car{index + 1}']
             if car.is_placed:
-                if car.get_car_position(main_rect=True) != c_data[:-1]:
-                    print(car.get_car_position())
-                    self.ghost_car = self.get_ghost_car(index + 1, c_data[-1], get_ground_position(*c_data[:-1]),
-                                                        None)
+                if car.get_car_position(main_rect=True, fix_y=True, get_rotation=True) != c_data:
+                    self.get_ghost_car(index + 1, c_data[-1], get_ground_position(*c_data[:-1]), None)
                     break
 
     def get_ghost_car(self, number, rotation, position, old_position):
+        if self.ghost_car_data:
+            return
         center_rect = pygame.Rect(position, [TILE_SIZE] * 2)
         data = cars[f'car{number}']
         data = rotate(data, rotation)
@@ -677,16 +683,18 @@ class Hints:
         for index, item in enumerate(data):
             other_rects[index].x, other_rects[index].y = center_rect.x, center_rect.y
             exec(f'other_rects[index].{item[0]}=center_rect.{item[1]}')
-        return other_rects + [center_rect]
+        self.ghost_car, self.ghost_car_data, self.ghost_car_number = other_rects + [center_rect], self.data[f'car{number}'], number
 
-    def update(self):
-        for index, car in enumerate(car_list):
-            c_data = self.data[f'car{index + 1}']
-            if car.is_placed:
-                if car.get_car_position(main_rect=True, fix_y=True, get_rotation=True) != c_data[:-1]:
-                    return
-        self.reset()
-
+    def update(self, prints=False):
+        if self.ghost_car and car_list[self.ghost_car_number - 1].is_placed:
+            car = car_list[self.ghost_car_number - 1].get_car_position(main_rect=True, fix_y=False, get_rotation=True)
+            if car == self.ghost_car_data:
+                # print(1, self.ghost_car_data, car)
+                self.reset()
+            else:
+                if prints:
+                    print(self.ghost_car_data, car)
+                pass
 
     def draw(self):
         if self.ghost_car is None:
@@ -708,6 +716,8 @@ class Hints:
 
     def reset(self):
         self.ghost_car = None
+        self.ghost_car_data = None
+        self.ghost_car_number = None
 
 
 read_data()
@@ -723,3 +733,5 @@ for x in range(6):
         grid.append(pygame.Rect((x_pos, y_pos), [TILE_SIZE] * 2))
 
 show_menu()
+
+# слетает поворот машины при нажатии кнопки
