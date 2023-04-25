@@ -691,10 +691,7 @@ class Hints:
         if self.ghost_car and car_list[self.ghost_car_number - 1].is_placed:
             car = car_list[self.ghost_car_number - 1].get_car_position(main_rect=True, fix_y=False, get_rotation=True)
             if car == self.ghost_car_data:
-                print(1)
                 self.reset()
-            else:
-                print(car, self.ghost_car_data)
 
     def draw(self):
         if self.ghost_car is None:
