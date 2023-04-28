@@ -227,7 +227,7 @@ def start_level(level=1):
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.MOUSEWHEEL:
-                  # * settings["rotation_direction"]
+                # * settings["rotation_direction"]
                 for car in car_list:
                     if car.is_picked:
                         car.rotate(event.y * -1)
@@ -284,7 +284,6 @@ def start_level(level=1):
         last.draw() if last else None
 
         [i.draw() for i in path_rects]
-
 
         hint_button.draw()
         exit_button.draw()
@@ -374,6 +373,7 @@ class Car:
         self.is_picked = False
         self.is_on_whiteboard = True
         self.rotation = 0
+        self.grab_point = [0, 0]
 
         self.rects = [pygame.Rect((0, 0), [TILE_SIZE] * 2) for _ in range(len(data))]
         self.main_rect = pygame.Rect(car_surf.get_position_of(self.number), [TILE_SIZE] * 2)
@@ -387,6 +387,7 @@ class Car:
                 return []
             if not any(map(lambda n: n.is_picked, car_list)):
                 self.is_picked = True
+                self.get_grab_pos()
                 self.is_placed = False
                 self.is_on_whiteboard = False
         else:
@@ -400,6 +401,8 @@ class Car:
 
         if self.is_picked:
             self.main_rect.center = pygame.mouse.get_pos()
+            self.main_rect.x += self.grab_point[0]
+            self.main_rect.y += self.grab_point[1]
 
         if self.is_placed:
             self.place_closest()
@@ -497,6 +500,10 @@ class Car:
         if fix_y:
             res[1] -= 1
         return res
+
+    def get_grab_pos(self):
+        self.grab_point = [self.main_rect.midtop[0] - pygame.mouse.get_pos()[0], self.main_rect.midleft[1] - \
+                           pygame.mouse.get_pos()[1]]
 
 
 class PathRect:
@@ -685,7 +692,8 @@ class Hints:
         for index, item in enumerate(data):
             other_rects[index].x, other_rects[index].y = center_rect.x, center_rect.y
             exec(f'other_rects[index].{item[0]}=center_rect.{item[1]}')
-        self.ghost_car, self.ghost_car_data, self.ghost_car_number = other_rects + [center_rect], self.data[f'car{number}'], number
+        self.ghost_car, self.ghost_car_data, self.ghost_car_number = other_rects + [center_rect], self.data[
+            f'car{number}'], number
 
     def update(self, prints=False):
         if self.ghost_car and car_list[self.ghost_car_number - 1].is_placed:
