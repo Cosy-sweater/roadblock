@@ -43,7 +43,7 @@ def close_app():
     sys.exit()
 
 
-def get_proportion(w: float = 1, h: float = 1) -> tuple:
+def get_proportion(w: float = 1, h: float = 1):
     return w * round(screen_w / width, 1), h * round(screen_h / height, 1)
 
 
@@ -212,7 +212,8 @@ def start_level(level=1):
 
     submit_button = Btn(command=check_solved, position=get_proportion(w=1600, h=450),
                         size=[100 * get_proportion()[0]] * 2)
-    exit_button = Btn(command=close_app, position=get_proportion(w=1870, h=0), size=[50 * get_proportion()[0]] * 2,
+    exit_button = Btn(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
+                      size=[50 * get_proportion()[0]] * 2,
                       color=(255, 0, 0), text="X")
     hint_button = Btn(command=hints.get_hint)
 
@@ -227,16 +228,14 @@ def start_level(level=1):
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.MOUSEWHEEL:
-                # * settings["rotation_direction"]
                 for car in car_list:
                     if car.is_picked:
-                        car.rotate(event.y * -1)
+                        car.rotate(event.y * -1 * (-1 if saved_data["rotation_inversion"] else 1))
             if event.type == pygame.MOUSEBUTTONDOWN:
                 clicked = True
 
         # Update.
         car_surf.update()
-        hints.update()
         for car in car_list:
             car_tiles = car.update()
             if car_tiles is None:
@@ -249,6 +248,7 @@ def start_level(level=1):
                     flag = True
             if not flag:
                 curent_tiles.extend(car_tiles)
+        hints.update()
 
         if clicked:
             exit_button.update()
@@ -374,6 +374,7 @@ class Car:
         self.is_on_whiteboard = True
         self.rotation = 0
         self.grab_point = [0, 0]
+        self.grabbed_rect = -1
 
         self.rects = [pygame.Rect((0, 0), [TILE_SIZE] * 2) for _ in range(len(data))]
         self.main_rect = pygame.Rect(car_surf.get_position_of(self.number), [TILE_SIZE] * 2)
@@ -394,15 +395,23 @@ class Car:
             if (not pygame.mouse.get_pressed()[0]) and (not self.is_on_whiteboard):
                 self.is_picked = False
                 self.is_placed = True
-                if self.main_rect.colliderect(ground) and car_surf.is_expended and not self.is_placed:
-                    self.is_on_whiteboard = True
-                else:
-                    self.is_on_whiteboard = False
+                # if self.main_rect.colliderect(ground) and car_surf.is_expended:
+                #     self.is_on_whiteboard = True
+                # else:
+                #     self.is_on_whiteboard = False
 
         if self.is_picked:
-            self.main_rect.center = pygame.mouse.get_pos()
-            self.main_rect.x += self.grab_point[0]
-            self.main_rect.y += self.grab_point[1]
+            if self.grabbed_rect == -1:
+                self.main_rect.center = pygame.mouse.get_pos()
+                self.main_rect.x += self.grab_point[0]
+                self.main_rect.y += self.grab_point[1]
+            else:
+                self.rects[self.grabbed_rect].center = pygame.mouse.get_pos()
+                self.rects[self.grabbed_rect].x += self.grab_point[0]
+                self.rects[self.grabbed_rect].y += self.grab_point[1]
+                self.main_rect.center = self.rects[self.grabbed_rect].center
+                item = self.data[self.grabbed_rect]
+                exec(f'self.main_rect.{item[1]}=self.rects[self.grabbed_rect].{item[0]}')
 
         if self.is_placed:
             self.place_closest()
@@ -466,11 +475,8 @@ class Car:
 
     def rotate(self, step: int):
         self.rotation += step
-        if self.rotation < 0:
-            self.rotation += 4
         self.rotation %= 4
-        if self.is_picked:
-            self.data = rotate(self.data, step)
+        self.data = rotate(self.data, step)
 
         self.update_rects()
 
@@ -502,8 +508,16 @@ class Car:
         return res
 
     def get_grab_pos(self):
-        self.grab_point = [self.main_rect.midtop[0] - pygame.mouse.get_pos()[0], self.main_rect.midleft[1] - \
-                           pygame.mouse.get_pos()[1]]
+        self.grabbed_rect = -1
+        for index, rect in enumerate(self.rects):
+            if rect.collidepoint(pygame.mouse.get_pos()):
+                self.grabbed_rect = index
+        if self.grabbed_rect == -1:
+            self.grab_point = [self.main_rect.center[0] - pygame.mouse.get_pos()[0],
+                               self.main_rect.center[1] - pygame.mouse.get_pos()[1]]
+        else:
+            self.grab_point = [self.rects[self.grabbed_rect].center[0] - pygame.mouse.get_pos()[0],
+                               self.rects[self.grabbed_rect].center[1] - pygame.mouse.get_pos()[1]]
 
 
 class PathRect:
@@ -522,9 +536,9 @@ class FunctionExit(Exception):
 
 
 class Btn:
-    def __init__(self, position: tuple = (0, 0), size: tuple = (50, 50), get_ansf=False, **kwargs):
+    def __init__(self, position: tuple = (0, 0), size=(50, 50), get_ansf=False, **kwargs):
         self.kwargs = kwargs.copy()
-        self.is_hiden = False
+        self.is_hidden = False
         self.rect = pygame.Rect(position, size)
         self.rect_color = self.kwargs.get("color")
         self.text = self.kwargs.get("text")
@@ -538,7 +552,7 @@ class Btn:
             self.text = font1.render(self.text, False, (0, 0, 0))
 
     def update(self):
-        if self.is_hiden:
+        if self.is_hidden:
             return
         if self.rect.collidepoint(pygame.mouse.get_pos()):
             if self.kwargs.get("command"):
@@ -553,13 +567,13 @@ class Btn:
                         return self.get_ansf
 
     def hide(self):
-        self.is_hiden = True
+        self.is_hidden = True
 
     def show(self):
-        self.is_hiden = False
+        self.is_hidden = False
 
     def draw(self):
-        if self.is_hiden:
+        if self.is_hidden:
             return
         pygame.draw.rect(screen, self.rect_color, self.rect)
         if self.text:
@@ -622,8 +636,6 @@ class LevelButtonsGroup:
 
         self.curent_page = 0
 
-        # self.bg_origin = pygame.Surface(screen.get_size())
-        # self.bg_origin.fill(self.bg_colors[self.curent_page])
         self.bg_surf = pygame.Surface(screen.get_size())
         self.bg_surf.set_alpha(0)
 
@@ -631,7 +643,6 @@ class LevelButtonsGroup:
         self.bg_surf.fill(self.bg_colors[self.curent_page])
         if self.frame <= 150:
             self.frame += 6
-        # self.bg_surf = self.bg_origin
         self.bg_surf.set_alpha(self.frame)
         [button.update() for button in
          self.levels[self.curent_page * 15:self.curent_page * 15 + 16]] if clicked else None
@@ -668,7 +679,9 @@ class Hints:
         self.ghost_car = None
         self.surf = pygame.Surface([TILE_SIZE] * 2)
         self.surf.fill((150, 255, 150))
+        self.surf2 = self.surf.copy()
         self.surf.set_alpha(200)
+        self.surf2.set_alpha(275)
 
     def get_hint(self):
         self.update()
@@ -681,6 +694,11 @@ class Hints:
                 if car.get_car_position(main_rect=True, fix_y=False, get_rotation=True) != c_data:
                     self.get_ghost_car(index + 1, c_data[-1], get_ground_position(*c_data[:-1]), None)
                     break
+        for index, car in enumerate(car_list):
+            c_data = self.data[f'car{index + 1}']
+            if not car.is_placed:
+                self.get_ghost_car(index + 1, c_data[-1], get_ground_position(*c_data[:-1]), None)
+                break
 
     def get_ghost_car(self, number, rotation, position, old_position):
         if self.ghost_car_data:
@@ -700,12 +718,26 @@ class Hints:
             car = car_list[self.ghost_car_number - 1].get_car_position(main_rect=True, fix_y=False, get_rotation=True)
             if car == self.ghost_car_data:
                 self.reset()
+            else:
+                print(car[-1])
+                if self.ghost_car_number == 2 and car is not None:
+                    car[-1] += 2
+                    car[-1] %= 4
+                    if car == self.ghost_car_data:
+                        self.reset()
+                # if car[:-1] == self.ghost_car_data[:-1]:
+                #     print(car[-1], self.ghost_car_data[-1])
 
     def draw(self):
         if self.ghost_car is None:
             return
-        for i in self.ghost_car:
-            screen.blit(self.surf, i)
+        for i, rect in enumerate(self.ghost_car):
+            if i == len(self.ghost_car) - 1:
+                i = -1
+            if i == car_places[self.ghost_car_number - 1]:
+                screen.blit(self.surf2, rect)
+            else:
+                screen.blit(self.surf, rect)
 
     def solve(self):
         for index, car in enumerate(car_list):
@@ -738,5 +770,3 @@ for x in range(6):
         grid.append(pygame.Rect((x_pos, y_pos), [TILE_SIZE] * 2))
 
 show_menu()
-
-# слетает поворот машины при нажатии кнопки
