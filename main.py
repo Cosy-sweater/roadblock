@@ -1,3 +1,4 @@
+# buttons default sizes: 150x150, 450x150
 import sys
 import json
 from pathlib import Path
@@ -43,8 +44,16 @@ def close_app():
     sys.exit()
 
 
-def get_proportion(w: float = 1, h: float = 1):
-    return w * round(screen_w / width, 1), h * round(screen_h / height, 1)
+def get_proportion(w: float = 1, h: float = 1, square: str = None):
+    if not square:
+        return w * round(screen_w / width, 1), h * round(screen_h / height, 1)
+    else:
+        if square.lower() == "h":
+            return h * round(screen_h / height, 1), h * round(screen_h / height, 1)
+        elif square.lower() == "w":
+            return w * round(screen_w / width, 1), w * round(screen_w / width, 1)
+        else:
+            raise ValueError("Argument takes 'w' and 'h' values only")
 
 
 def rotate(data, step=1):
@@ -69,40 +78,49 @@ def show_menu():
         global curent_page, prev_page
         curent_page, prev_page = n, curent_page
 
+    def unlock_all():
+        saved_data["max_level"] = 60
+        save_data()
+
     exit_button = Btn(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
-                      size=[50 * get_proportion()[0]] * 2,
+                      size=get_proportion(50, 50),
                       color=(255, 0, 0), text="X")
-    play_button = Btn(size=(450 * get_proportion()[0], 150 * get_proportion()[1]),
+    play_button = Btn(size=get_proportion(450, 150),
                       position=(screen_w / 2 - 175 * get_proportion()[0], 170 * get_proportion()[1]), text="Продолжить",
                       text_align="center",
                       command=start_level, command_args=[saved_data["max_level"]])
-    levels_button = Btn(size=(450 * get_proportion()[0], 150 * get_proportion()[1]),
+    levels_button = Btn(size=get_proportion(450, 150),
                         position=(screen_w / 2 - 175 * get_proportion()[0], 370 * get_proportion()[1]), text="Уровни",
                         text_align="сenter",
                         command=set_page, command_args=[2], get_answ=1)
-    info_button = Btn(size=(450 * get_proportion()[0], 150 * get_proportion()[1]),
+    info_button = Btn(size=get_proportion(450, 150),
                       position=(screen_w / 2 - 175 * get_proportion()[0], 570 * get_proportion()[1]), text="Инфо",
                       text_align="сenter")
+    back_button = Btn(size=get_proportion(50, 50, square="h"), position=(0, 0), text="<-", command=set_page,
+                      command_args=[1])
 
-    mute_button = Btn(size=(150 * get_proportion()[0], 150 * get_proportion()[1]),
+    mute_button = Btn(size=get_proportion(150, 150, square="h"),
                       position=(info_button.rect.left, 770 * get_proportion()[1]), text="M",
                       bool_state=saved_data["muted"])
-    settings_button = Btn(size=(150 * get_proportion()[0], 150 * get_proportion()[1]),
+    settings_button = Btn(size=get_proportion(150, 150, square="h"),
                           position=(info_button.rect.right - 150 * get_proportion()[0], get_proportion()[1] * 770),
-                          text="S")
+                          text="S", command=set_page, command_args=[3])
+
+    level_buttons = LevelButtonsGroup()
+    button_next = Btn(command=level_buttons.next, position=(screen_w - 50, screen_h // 2), text=">")
+    button_prev = Btn(command=level_buttons.prev, position=(0, screen_h // 2), text="<")
+
+    unlock_all_button = Btn(size=get_proportion(450, 150),
+                            position=(screen_w / 2 - 175 * get_proportion()[0], 300 * get_proportion()[1]),
+                            text="Открыть все уровни", command=unlock_all)
 
     curent_page = 1
     prev_page = curent_page
     curent_levels_page = 1
     l1 = [play_button, levels_button, info_button, mute_button, settings_button]
-    l2 = [LevelButtonsGroup()]
+    l2 = [level_buttons, button_prev, button_next]
     l2[0].draw()
-    l3 = []
-
-    button_next = Btn(command=l2[0].next, position=(screen_w - 50, screen_h // 2), text=">")
-    button_prev = Btn(command=l2[0].prev, position=(0, screen_h // 2), text="<")
-    l2.append(button_prev)
-    l2.append(button_next)
+    l3 = [unlock_all_button]
 
     while True:
         screen.fill((128, 128, 128))
@@ -125,6 +143,7 @@ def show_menu():
                 exit_button.update()
                 button_next.update()
                 button_prev.update()
+                back_button.update()
                 if resp == 1:
                     clicked = False
 
@@ -139,6 +158,7 @@ def show_menu():
             [i.hide() for i in l2]
         if curent_page == 3:
             [i.show() for i in l3]
+            [i.update() for i in l3]
         else:
             [i.hide() for i in l3]
         l2[curent_levels_page - 1].update(clicked if curent_page == prev_page else False)
@@ -150,9 +170,8 @@ def show_menu():
             [i.draw() for i in l2]
         elif curent_page == 3:
             [i.draw() for i in l3]
-        # button_next.draw()
-        # button_prev.draw()
 
+        back_button.draw()
         exit_button.draw()
 
         pygame.display.flip()
@@ -536,7 +555,7 @@ class FunctionExit(Exception):
 
 
 class Btn:
-    def __init__(self, position: tuple = (0, 0), size=(50, 50), get_ansf=False, **kwargs):
+    def __init__(self, position: tuple = (0, 0), size=(50, 50), get_ansf=False, locked=False, **kwargs):
         self.kwargs = kwargs.copy()
         self.is_hidden = False
         self.rect = pygame.Rect(position, size)
@@ -545,6 +564,7 @@ class Btn:
         self.text_align = self.kwargs.get("text_align", "topleft")
         self.bool_state = self.kwargs.get("bool_state")
         self.get_ansf = get_ansf
+        self.is_locked = locked
         if not self.rect_color:
             self.rect_color = (100, 255, 0)
 
@@ -552,7 +572,7 @@ class Btn:
             self.text = font1.render(self.text, False, (0, 0, 0))
 
     def update(self):
-        if self.is_hidden:
+        if self.is_hidden or self.is_locked:
             return
         if self.rect.collidepoint(pygame.mouse.get_pos()):
             if self.kwargs.get("command"):
@@ -601,6 +621,9 @@ class Btn:
     def switch(self):
         if self.bool_state is not None:
             self.bool_state = not self.bool_state
+
+    def switch_lock(self):
+        self.is_locked = not self.is_locked
 
 
 class Popup:
@@ -713,20 +736,17 @@ class Hints:
         self.ghost_car, self.ghost_car_data, self.ghost_car_number = other_rects + [center_rect], self.data[
             f'car{number}'], number
 
-    def update(self, prints=False):
+    def update(self):
         if self.ghost_car and car_list[self.ghost_car_number - 1].is_placed:
             car = car_list[self.ghost_car_number - 1].get_car_position(main_rect=True, fix_y=False, get_rotation=True)
             if car == self.ghost_car_data:
                 self.reset()
             else:
-                print(car[-1])
                 if self.ghost_car_number == 2 and car is not None:
                     car[-1] += 2
                     car[-1] %= 4
                     if car == self.ghost_car_data:
                         self.reset()
-                # if car[:-1] == self.ghost_car_data[:-1]:
-                #     print(car[-1], self.ghost_car_data[-1])
 
     def draw(self):
         if self.ghost_car is None:
