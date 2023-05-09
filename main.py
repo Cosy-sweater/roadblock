@@ -43,6 +43,11 @@ def close_app():
     pygame.quit()
     sys.exit()
 
+def update_popups(clicked=False):
+    [i.update(clicked=clicked) for i in popups]
+
+def draw_popups():
+    [i.draw() for i in popups]
 
 def get_proportion(w: float = 1, h: float = 1, square: str = None):
     if not square:
@@ -54,6 +59,7 @@ def get_proportion(w: float = 1, h: float = 1, square: str = None):
             return w * round(screen_w / width, 1), w * round(screen_w / width, 1)
         else:
             raise ValueError("Argument takes 'w' and 'h' values only")
+default_surf = pygame.Surface(get_proportion(w=1500, h=800))
 
 
 def rotate(data, step=1):
@@ -135,19 +141,21 @@ def show_menu():
                 sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 clicked = True
-                play_button.update()
-                resp = levels_button.update()
-                info_button.update()
-                mute_button.update()
-                settings_button.update()
                 exit_button.update()
-                button_next.update()
-                button_prev.update()
-                back_button.update()
-                if resp == 1:
-                    clicked = False
+                if not popups:
+                    play_button.update()
+                    resp = levels_button.update()
+                    info_button.update()
+                    mute_button.update()
+                    settings_button.update()
+                    button_next.update()
+                    button_prev.update()
+                    back_button.update()
+                    if resp == 1:
+                        clicked = False
 
         # Update.
+        update_popups(clicked)
         if curent_page == 1:
             [i.show() for i in l1]
         else:
@@ -172,6 +180,7 @@ def show_menu():
             [i.draw() for i in l3]
 
         back_button.draw()
+        draw_popups()
         exit_button.draw()
 
         pygame.display.flip()
@@ -271,11 +280,13 @@ def start_level(level=1):
 
         if clicked:
             exit_button.update()
-            hint_button.update()
-            try:
-                submit_button.update()
-            except FunctionExit:
-                return
+            if not popups:
+                hint_button.update()
+                try:
+                    submit_button.update()
+                except FunctionExit:
+                    pass
+        update_popups(clicked)
 
         if len(curent_tiles) != 36:
             path_rects.clear()
@@ -305,6 +316,7 @@ def start_level(level=1):
         [i.draw() for i in path_rects]
 
         hint_button.draw()
+        draw_popups()
         exit_button.draw()
 
         pygame.display.flip()
@@ -372,7 +384,7 @@ class CarSurface:
             self.is_expended = True
         else:
             self.is_expended = False
-            self.car_surf_rect.top += 85
+            self.car_surf_rect.top += get_proportion(h=85)[1]
             if self.car_surf_rect.top > screen_h - self.bottom_border:
                 self.car_surf_rect.top = screen_h - self.bottom_border
 
@@ -627,20 +639,32 @@ class Btn:
 
 
 class Popup:
-    def __init__(self, title="title", text="text", **kwargs):
+    def __init__(self, surf=default_surf, title="title", text="text", buttons=[]):
         self.title, self.text = title, text
-        self.kwargs = kwargs
+        self.surf = surf
+        self.buttons = buttons.copy()
 
+        self.center = self.surf.get_rect()
+        self.center.center = screen.get_rect().center
+        self.center.x -= screen_w
         self.is_shown = True
         self.not_expanded = True
         self.curent_frame = 0
+        self.final_frame = screen_w // get_proportion(w=192)[0]
 
-    def update(self):
-        if self.not_expanded:
+    def update(self, clicked=False):
+        if self.curent_frame < self.final_frame:
             self.curent_frame += 1
+            self.center.x += get_proportion(w=192)[0]
+            return
+        if clicked:
+            [i.update() for i in self.buttons]
 
-        if not self.is_shown:
-            del self
+    def draw(self):
+        screen.blit(self.surf, self.center)
+
+    def destroy(self):
+        del self
 
 
 class LevelButtonsGroup:
@@ -779,6 +803,7 @@ class Hints:
 
 read_data()
 
+popups = [Popup(title="TeSt")]
 grid = []
 ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
