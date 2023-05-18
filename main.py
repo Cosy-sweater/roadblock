@@ -2,6 +2,7 @@
 import sys
 import json
 from pathlib import Path
+import warnings
 
 import level_solver
 
@@ -20,7 +21,7 @@ fpsClock = pygame.time.Clock()
 width, height = 1920, 1080
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)  # , pygame.FULLSCREEN)
 
-font1 = pygame.font.SysFont('Comic Sans MS', 30)
+font1 = pygame.font.SysFont('Comic Sans MS', int(30 * screen.get_width() / width))
 
 houses = {"house1": [[0, 0], [-1, 0], [1, 0]],
           "house2": [[0, 0], [0, -1], [1, -1], [0, 1]],
@@ -43,11 +44,14 @@ def close_app():
     pygame.quit()
     sys.exit()
 
+
 def update_popups(clicked=False):
     [i.update(clicked=clicked) for i in popups]
 
+
 def draw_popups():
     [i.draw() for i in popups]
+
 
 def get_proportion(w: float = 1, h: float = 1, square: str = None):
     if not square:
@@ -59,7 +63,10 @@ def get_proportion(w: float = 1, h: float = 1, square: str = None):
             return w * round(screen_w / width, 1), w * round(screen_w / width, 1)
         else:
             raise ValueError("Argument takes 'w' and 'h' values only")
+
+
 default_surf = pygame.Surface(get_proportion(w=1500, h=800))
+default_surf.fill((44, 44, 44))
 
 
 def rotate(data, step=1):
@@ -88,37 +95,39 @@ def show_menu():
         saved_data["max_level"] = 60
         save_data()
 
-    exit_button = Btn(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
-                      size=get_proportion(50, 50),
-                      color=(255, 0, 0), text="X")
-    play_button = Btn(size=get_proportion(450, 150),
-                      position=(screen_w / 2 - 175 * get_proportion()[0], 170 * get_proportion()[1]), text="Продолжить",
-                      text_align="center",
-                      command=start_level, command_args=[saved_data["max_level"]])
-    levels_button = Btn(size=get_proportion(450, 150),
-                        position=(screen_w / 2 - 175 * get_proportion()[0], 370 * get_proportion()[1]), text="Уровни",
-                        text_align="сenter",
-                        command=set_page, command_args=[2], get_answ=1)
-    info_button = Btn(size=get_proportion(450, 150),
-                      position=(screen_w / 2 - 175 * get_proportion()[0], 570 * get_proportion()[1]), text="Инфо",
-                      text_align="сenter")
-    back_button = Btn(size=get_proportion(50, 50, square="h"), position=(0, 0), text="<-", command=set_page,
-                      command_args=[1])
+    exit_button = Button(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
+                         size=get_proportion(50, 50),
+                         color=(255, 0, 0), text="X")
+    play_button = Button(size=get_proportion(450, 150),
+                         position=(screen_w / 2 - 175 * get_proportion()[0], 170 * get_proportion()[1]),
+                         text="Продолжить",
+                         text_align="center",
+                         command=start_level, command_args=[saved_data["max_level"]])
+    levels_button = Button(size=get_proportion(450, 150),
+                           position=(screen_w / 2 - 175 * get_proportion()[0], 370 * get_proportion()[1]),
+                           text="Уровни",
+                           text_align="сenter",
+                           command=set_page, command_args=[2], get_answ=1)
+    info_button = Button(size=get_proportion(450, 150),
+                         position=(screen_w / 2 - 175 * get_proportion()[0], 570 * get_proportion()[1]), text="Инфо",
+                         text_align="сenter")
+    back_button = Button(size=get_proportion(50, 50, square="h"), position=(0, 0), text="<-", command=set_page,
+                         command_args=[1])
 
-    mute_button = Btn(size=get_proportion(150, 150, square="h"),
-                      position=(info_button.rect.left, 770 * get_proportion()[1]), text="M",
-                      bool_state=saved_data["muted"])
-    settings_button = Btn(size=get_proportion(150, 150, square="h"),
-                          position=(info_button.rect.right - 150 * get_proportion()[0], get_proportion()[1] * 770),
-                          text="S", command=set_page, command_args=[3])
+    mute_button = Button(size=get_proportion(150, 150, square="h"),
+                         position=(info_button.rect.left, 770 * get_proportion()[1]), text="M",
+                         bool_state=saved_data["muted"])
+    settings_button = Button(size=get_proportion(150, 150, square="h"),
+                             position=(info_button.rect.right - 150 * get_proportion()[0], get_proportion()[1] * 770),
+                             text="S", command=set_page, command_args=[3])
 
     level_buttons = LevelButtonsGroup()
-    button_next = Btn(command=level_buttons.next, position=(screen_w - 50, screen_h // 2), text=">")
-    button_prev = Btn(command=level_buttons.prev, position=(0, screen_h // 2), text="<")
+    button_next = Button(command=level_buttons.next, position=(screen_w - 50, screen_h // 2), text=">")
+    button_prev = Button(command=level_buttons.prev, position=(0, screen_h // 2), text="<")
 
-    unlock_all_button = Btn(size=get_proportion(450, 150),
-                            position=(screen_w / 2 - 175 * get_proportion()[0], 300 * get_proportion()[1]),
-                            text="Открыть все уровни", command=unlock_all)
+    unlock_all_button = Button(size=get_proportion(450, 150),
+                               position=(screen_w / 2 - 175 * get_proportion()[0], 300 * get_proportion()[1]),
+                               text="Открыть все уровни", command=unlock_all)
 
     curent_page = 1
     prev_page = curent_page
@@ -238,12 +247,12 @@ def start_level(level=1):
     for num, key in enumerate(cars):
         car_list.append(Car(cars[f'car{num + 1}'], num + 1, car_places[num]))
 
-    submit_button = Btn(command=check_solved, position=get_proportion(w=1600, h=450),
-                        size=[100 * get_proportion()[0]] * 2)
-    exit_button = Btn(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
-                      size=[50 * get_proportion()[0]] * 2,
-                      color=(255, 0, 0), text="X")
-    hint_button = Btn(command=hints.get_hint)
+    submit_button = Button(command=check_solved, position=get_proportion(w=1600, h=450),
+                           size=[100 * get_proportion()[0]] * 2)
+    exit_button = Button(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
+                         size=[50 * get_proportion()[0]] * 2,
+                         color=(255, 0, 0), text="X")
+    hint_button = Button(position=get_proportion(w=0, h=540), command=hints.get_hint)
 
     while True:
         curent_tiles = ocupied_tiles.copy()
@@ -285,7 +294,8 @@ def start_level(level=1):
                 try:
                     submit_button.update()
                 except FunctionExit:
-                    pass
+                    popups.extend(
+                        [Popup(title="TeSt", buttons=[Button(text="123"), Button(text="123"), Button(text="123")])])
         update_popups(clicked)
 
         if len(curent_tiles) != 36:
@@ -299,6 +309,7 @@ def start_level(level=1):
         [house.draw() for house in house_list]
 
         #  mid level
+        hint_button.draw()
         [car.draw() for car in car_list]
         submit_button.draw()
         hints.draw()
@@ -315,7 +326,6 @@ def start_level(level=1):
 
         [i.draw() for i in path_rects]
 
-        hint_button.draw()
         draw_popups()
         exit_button.draw()
 
@@ -566,8 +576,8 @@ class FunctionExit(Exception):
     pass
 
 
-class Btn:
-    def __init__(self, position: tuple = (0, 0), size=(50, 50), get_ansf=False, locked=False, **kwargs):
+class Button:
+    def __init__(self, position: tuple = (0, 0), size=(100, 100), get_ansf=False, locked=False, **kwargs):
         self.kwargs = kwargs.copy()
         self.is_hidden = False
         self.rect = pygame.Rect(position, size)
@@ -643,25 +653,40 @@ class Popup:
         self.title, self.text = title, text
         self.surf = surf
         self.buttons = buttons.copy()
+        if len(buttons) > 3:
+            raise AttributeError(f"buttons argument takes 3 or less arguments but {len(buttons)} were given")
 
-        self.center = self.surf.get_rect()
-        self.center.center = screen.get_rect().center
-        self.center.x -= screen_w
+        self.main_rect = self.surf.get_rect()
+        self.main_rect.center = screen.get_rect().center
+        self.main_rect.x -= screen_w
         self.is_shown = True
         self.not_expanded = True
-        self.curent_frame = 0
-        self.final_frame = screen_w // get_proportion(w=192)[0]
+        self.speed = get_proportion(w=10)[0]
 
     def update(self, clicked=False):
-        if self.curent_frame < self.final_frame:
-            self.curent_frame += 1
-            self.center.x += get_proportion(w=192)[0]
+        if self.main_rect.centerx < screen.get_rect().centerx:
+            self.main_rect.centerx += self.speed
+            self.main_rect.x += get_proportion(w=192)[0]
+            if self.main_rect.centerx > screen.get_rect().centerx:
+                self.main_rect.centerx = screen.get_rect().centerx
+            t = list(self.main_rect.bottomleft)
+            t[0] += get_proportion(w=300)[0]
+            t[1] -= get_proportion(h=100)[1]
+            self.buttons[0].rect.center = t
+            t = list(self.main_rect.bottomright)
+            t[0] -= get_proportion(w=300)[0]
+            t[1] -= get_proportion(h=100)[1]
+            self.buttons[1].rect.center = t
+            t = list(self.main_rect.midbottom)
+            t[1] -= get_proportion(h=100)[1]
+            self.buttons[2].rect.center = t
             return
         if clicked:
             [i.update() for i in self.buttons]
 
     def draw(self):
-        screen.blit(self.surf, self.center)
+        screen.blit(self.surf, self.main_rect)
+        [button.draw() for button in self.buttons]
 
     def destroy(self):
         del self
@@ -676,9 +701,10 @@ class LevelButtonsGroup:
 
         self.bg_colors = [(117, 252, 19), (255, 235, 0), (221, 31, 10), (18, 47, 232)]
         self.levels = [
-            Btn(text=str(i), color=self.bg_colors[(i - 1) // 15], command=start_level, position=get_button_position(i),
-                size=[150 * get_proportion()[0]] * 2,
-                command_args=(i,)) for i in range(1, 61)]
+            Button(text=str(i), color=self.bg_colors[(i - 1) // 15], command=start_level,
+                   position=get_button_position(i),
+                   size=[150 * get_proportion()[0]] * 2,
+                   command_args=(i,)) for i in range(1, 61)]
         self.frame = 0
 
         self.curent_page = 0
@@ -803,7 +829,7 @@ class Hints:
 
 read_data()
 
-popups = [Popup(title="TeSt")]
+popups = []  # Popup(title="TeSt")
 grid = []
 ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
