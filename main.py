@@ -1,4 +1,4 @@
-# buttons default sizes: 150x150, 450x150
+# buttons default sizes: 150x150, 450x150, 450x450
 import sys
 import json
 from pathlib import Path
@@ -83,6 +83,19 @@ def rotate(data, step=1):
 
     return res
 
+def summon_hint_menu():
+    global hints
+    popups.append(Popup(
+        title="Меню подсказок",
+        text="123",
+        buttons=[
+            Button(text="1", size=(450, 450), command=hints.get_hint),
+            Button(text="2", size=(450, 450), command=hints.solve)
+        ],
+        big_buttons=True,
+        destroy_on_click=True
+    ))
+
 
 def show_menu():
     global curent_page, prev_page
@@ -149,19 +162,20 @@ def show_menu():
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                clicked = True
-                exit_button.update()
-                if not popups:
-                    play_button.update()
-                    resp = levels_button.update()
-                    info_button.update()
-                    mute_button.update()
-                    settings_button.update()
-                    button_next.update()
-                    button_prev.update()
-                    back_button.update()
-                    if resp == 1:
-                        clicked = False
+                if event.button == 1:
+                    clicked = True
+                    exit_button.update()
+                    if not popups:
+                        play_button.update()
+                        resp = levels_button.update()
+                        info_button.update()
+                        mute_button.update()
+                        settings_button.update()
+                        button_next.update()
+                        button_prev.update()
+                        back_button.update()
+                        if resp == 1:
+                            clicked = False
 
         # Update.
         update_popups(clicked)
@@ -228,7 +242,7 @@ def start_level(level=1):
                 for tile in result[1]:
                     path_rects.append(PathRect(get_ground_position(*tile[::-1])))
 
-    global car_surf, car_list, hint_rects
+    global car_surf, car_list, hint_rects, hints
     house_list = []
     car_list = []
     path_rects = []
@@ -252,7 +266,7 @@ def start_level(level=1):
     exit_button = Button(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
                          size=[50 * get_proportion()[0]] * 2,
                          color=(255, 0, 0), text="X")
-    hint_button = Button(position=get_proportion(w=0, h=540), command=hints.get_hint)
+    hint_button = Button(position=get_proportion(w=0, h=540), command=summon_hint_menu)
 
     while True:
         curent_tiles = ocupied_tiles.copy()
@@ -269,7 +283,8 @@ def start_level(level=1):
                     if car.is_picked:
                         car.rotate(event.y * -1 * (-1 if saved_data["rotation_inversion"] else 1))
             if event.type == pygame.MOUSEBUTTONDOWN:
-                clicked = True
+                if event.button == 1:
+                    clicked = True
 
         # Update.
         car_surf.update()
@@ -649,10 +664,12 @@ class Button:
 
 
 class Popup:
-    def __init__(self, surf=default_surf, title="title", text="text", buttons=[]):
+    def __init__(self, surf=default_surf, title="", text="", buttons=[], big_buttons=False, destroy_on_click=False):
         self.title, self.text = title, text
         self.surf = surf
         self.buttons = buttons.copy()
+        self.big_buttons = big_buttons
+        self.destroy_on_click = destroy_on_click
         if len(buttons) > 3:
             raise AttributeError(f"buttons argument takes 3 or less arguments but {len(buttons)} were given")
 
@@ -661,35 +678,94 @@ class Popup:
         self.main_rect.x -= screen_w
         self.is_shown = True
         self.not_expanded = True
-        self.speed = get_proportion(w=10)[0]
+        self.speed = get_proportion(w=200, h=90)
+
+        self.title = font1.render(self.title, False, (0, 0, 0))
+        self.text = font1.render(self.text, False, (0, 0, 0))
+        self.remove_self = False
 
     def update(self, clicked=False):
         if self.main_rect.centerx < screen.get_rect().centerx:
-            self.main_rect.centerx += self.speed
-            self.main_rect.x += get_proportion(w=192)[0]
+            self.main_rect.centerx += self.speed[0]
             if self.main_rect.centerx > screen.get_rect().centerx:
                 self.main_rect.centerx = screen.get_rect().centerx
-            t = list(self.main_rect.bottomleft)
-            t[0] += get_proportion(w=300)[0]
-            t[1] -= get_proportion(h=100)[1]
-            self.buttons[0].rect.center = t
-            t = list(self.main_rect.bottomright)
-            t[0] -= get_proportion(w=300)[0]
-            t[1] -= get_proportion(h=100)[1]
-            self.buttons[1].rect.center = t
-            t = list(self.main_rect.midbottom)
-            t[1] -= get_proportion(h=100)[1]
-            self.buttons[2].rect.center = t
+            self.update_buttons()
+
             return
         if clicked:
             [i.update() for i in self.buttons]
+            if self.destroy_on_click and any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in self.buttons]):
+                self.remove()
+
+        if self.remove_self:
+            self.main_rect.centery -= self.speed[1]
+            self.update_buttons()
+            if self.main_rect.bottom < 0:
+                popups.clear()
 
     def draw(self):
         screen.blit(self.surf, self.main_rect)
         [button.draw() for button in self.buttons]
+        t = self.title.get_rect()
+        t.midtop = self.main_rect.midtop
+        t[1] += 15
+        screen.blit(self.title, t)
 
-    def destroy(self):
-        del self
+    def remove(self):
+        self.remove_self = True
+
+    def update_buttons(self):
+        if len(self.buttons) == 3:
+            if self.big_buttons:
+                t = list(self.main_rect.bottomleft)
+                t[0] += get_proportion(w=270)[0]
+                t[1] -= get_proportion(h=370)[1]
+                self.buttons[0].rect.center = t
+                t = list(self.main_rect.bottomright)
+                t[0] -= get_proportion(w=270)[0]
+                t[1] -= get_proportion(h=370)[1]
+                self.buttons[1].rect.center = t
+                t = list(self.main_rect.midbottom)
+                t[1] -= get_proportion(h=370)[1]
+                self.buttons[2].rect.center = t
+            else:
+                t = list(self.main_rect.bottomleft)
+                t[0] += get_proportion(w=300)[0]
+                t[1] -= get_proportion(h=100)[1]
+                self.buttons[0].rect.center = t
+                t = list(self.main_rect.bottomright)
+                t[0] -= get_proportion(w=300)[0]
+                t[1] -= get_proportion(h=100)[1]
+                self.buttons[1].rect.center = t
+                t = list(self.main_rect.midbottom)
+                t[1] -= get_proportion(h=100)[1]
+                self.buttons[2].rect.center = t
+        elif len(self.buttons) == 2:
+            if self.big_buttons:
+                t = list(self.main_rect.bottomleft)
+                t[0] += get_proportion(w=420)[0]
+                t[1] -= get_proportion(h=370)[1]
+                self.buttons[0].rect.center = t
+                t = list(self.main_rect.bottomright)
+                t[0] -= get_proportion(w=420)[0]
+                t[1] -= get_proportion(h=370)[1]
+                self.buttons[1].rect.center = t
+                t = list(self.main_rect.midbottom)
+                t[1] -= get_proportion(h=370)[1]
+            else:
+                t = list(self.main_rect.bottomleft)
+                t[0] += get_proportion(w=450)[0]
+                t[1] -= get_proportion(h=100)[1]
+                self.buttons[0].rect.center = t
+                t = list(self.main_rect.bottomright)
+                t[0] -= get_proportion(w=450)[0]
+                t[1] -= get_proportion(h=100)[1]
+                self.buttons[1].rect.center = t
+                t = list(self.main_rect.midbottom)
+                t[1] -= get_proportion(h=100)[1]
+
+        else:
+            pass
 
 
 class LevelButtonsGroup:
@@ -829,7 +905,7 @@ class Hints:
 
 read_data()
 
-popups = []  # Popup(title="TeSt")
+popups = [] # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
 grid = []
 ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
