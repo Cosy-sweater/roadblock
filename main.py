@@ -67,6 +67,8 @@ def get_proportion(w: float = 1, h: float = 1, square: str = None):
 
 default_surf = pygame.Surface(get_proportion(w=1500, h=800))
 default_surf.fill((44, 44, 44))
+mini_surf = pygame.Surface(get_proportion(w=400, h=200))
+mini_surf.fill((44, 44, 44))
 
 
 def rotate(data, step=1):
@@ -767,6 +769,33 @@ class Popup:
         else:
             pass
 
+class MiniPopup(Popup):
+    def __init__(self, *args, **kwargs):
+        kwargs["surf"] = mini_surf
+        super().__init__(*args, **kwargs)
+        self.main_rect.top = 0
+        self.main_rect.left = width
+        self.speed = (15, 0)
+
+    def update(self, clicked=False):
+        if self.main_rect.left > width - self.main_rect.width:
+            self.main_rect.left -= self.speed[0]
+            if self.main_rect.left < width - self.main_rect.width:
+                self.main_rect.left = width - self.main_rect.width
+            self.update_buttons()
+
+            return
+        if clicked:
+            [i.update() for i in self.buttons]
+            if self.destroy_on_click and any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in self.buttons]):
+                self.remove()
+
+        if self.remove_self:
+            self.main_rect.centery -= self.speed[1]
+            self.update_buttons()
+            if self.main_rect.bottom < 0:
+                popups.clear()
+
 
 class LevelButtonsGroup:
     def __init__(self):
@@ -905,7 +934,7 @@ class Hints:
 
 read_data()
 
-popups = [] # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
+popups = [MiniPopup(surf=mini_surf, title="123")] # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
 grid = []
 ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
