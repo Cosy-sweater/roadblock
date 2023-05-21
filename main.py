@@ -1,4 +1,4 @@
-# buttons default sizes: 150x150, 450x150, 450x450
+# buttons default sizes: 150x150, 450x150, 450x450, 150x70, 50x50
 import sys
 import json
 from pathlib import Path
@@ -22,6 +22,7 @@ width, height = 1920, 1080
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)  # , pygame.FULLSCREEN)
 
 font1 = pygame.font.SysFont('Comic Sans MS', int(30 * screen.get_width() / width))
+font2 = pygame.font.SysFont('Comic Sans MS', int(15 * screen.get_width() / width))
 
 houses = {"house1": [[0, 0], [-1, 0], [1, 0]],
           "house2": [[0, 0], [0, -1], [1, -1], [0, 1]],
@@ -67,7 +68,7 @@ def get_proportion(w: float = 1, h: float = 1, square: str = None):
 
 default_surf = pygame.Surface(get_proportion(w=1500, h=800))
 default_surf.fill((44, 44, 44))
-mini_surf = pygame.Surface(get_proportion(w=400, h=200))
+mini_surf = pygame.Surface(get_proportion(w=450, h=200))
 mini_surf.fill((44, 44, 44))
 
 
@@ -110,7 +111,7 @@ def show_menu():
         saved_data["max_level"] = 60
         save_data()
 
-    exit_button = Button(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
+    exit_button = Button(command=close_app, position=get_proportion(screen_w - 50, height - 50),
                          size=get_proportion(50, 50),
                          color=(255, 0, 0), text="X")
     play_button = Button(size=get_proportion(450, 150),
@@ -242,7 +243,7 @@ def start_level(level=1):
         else:
             if not path_rects:
                 for tile in result[1]:
-                    path_rects.append(PathRect(get_ground_position(*tile[::-1])))
+                    path_rects.append(PathRect(get_board_position(*tile[::-1])))
 
     global car_surf, car_list, hint_rects, hints
     house_list = []
@@ -253,7 +254,7 @@ def start_level(level=1):
     for i in json_data:
         if "house" in i:
             house_list.append(House(json_data[i], houses[i]))
-    red_car = pygame.Rect(get_ground_position(*json_data["car"]), [TILE_SIZE] * 2)
+    red_car = pygame.Rect(get_board_position(*json_data["car"]), [TILE_SIZE] * 2)
 
     car_surf = CarSurface()
     ocupied_tiles = [json_data["car"]]
@@ -350,8 +351,8 @@ def start_level(level=1):
         fpsClock.tick(fps)
 
 
-def get_ground_position(x, y):
-    return x * TILE_SIZE + ground.topleft[0], y * TILE_SIZE + ground.topleft[1]
+def get_board_position(x, y):
+    return x * TILE_SIZE + board.topleft[0], y * TILE_SIZE + board.topleft[1]
 
 
 def save_data():
@@ -378,7 +379,7 @@ class House:
             self.tiles = [[-j, i] for i, j in self.tiles]
 
         self.board_tiles = [[self.pos_x + i, self.pos_y + j] for i, j in self.tiles]
-        self.tiles = [get_ground_position(i, j) for i, j in self.board_tiles]
+        self.tiles = [get_board_position(i, j) for i, j in self.board_tiles]
 
         self.rects = []
         for tile in self.tiles:
@@ -544,7 +545,7 @@ class Car:
 
     def check_boundary(self):
         for rect in self.rects:
-            if not rect.colliderect(ground):
+            if not rect.colliderect(board):
                 self.is_placed, self.is_on_whiteboard = False, True
 
     def get_all_rects(self):
@@ -666,14 +667,13 @@ class Button:
 
 
 class Popup:
-    def __init__(self, surf=default_surf, title="", text="", buttons=[], big_buttons=False, destroy_on_click=False):
-        self.title, self.text = title, text
+    def __init__(self, surf=default_surf, title="", subtext="", buttons=[], big_buttons=False, destroy_on_click=False):
+        self.title, self.subtext = title, subtext
         self.surf = surf
         self.buttons = buttons.copy()
         self.big_buttons = big_buttons
         self.destroy_on_click = destroy_on_click
-        if len(buttons) > 3:
-            raise AttributeError(f"buttons argument takes 3 or less arguments but {len(buttons)} were given")
+        self.check_buttons()
 
         self.main_rect = self.surf.get_rect()
         self.main_rect.center = screen.get_rect().center
@@ -683,7 +683,8 @@ class Popup:
         self.speed = get_proportion(w=200, h=90)
 
         self.title = font1.render(self.title, False, (0, 0, 0))
-        self.text = font1.render(self.text, False, (0, 0, 0))
+        self.subtext = self.subtext.split("\n")
+        self.subtext = [font1.render(i, False, (0, 0, 0)) for i in self.subtext]
         self.remove_self = False
 
     def update(self, clicked=False):
@@ -703,7 +704,7 @@ class Popup:
             self.main_rect.centery -= self.speed[1]
             self.update_buttons()
             if self.main_rect.bottom < 0:
-                popups.clear()
+                popups.remove(self)
 
     def draw(self):
         screen.blit(self.surf, self.main_rect)
@@ -712,6 +713,11 @@ class Popup:
         t.midtop = self.main_rect.midtop
         t[1] += 15
         screen.blit(self.title, t)
+        for i in enumerate(self.subtext):
+            t = i[1].get_rect()
+            t.midtop = self.main_rect.midtop
+            t[1] += 150 + 100 * i[0]
+            screen.blit(i[1], t)
 
     def remove(self):
         self.remove_self = True
@@ -769,16 +775,26 @@ class Popup:
         else:
             pass
 
+    def check_buttons(self):
+        if len(self.buttons) > 3:
+            raise AttributeError(f"buttons argument takes 3 or less arguments but {len(self.buttons)} were given")
+
 class MiniPopup(Popup):
+    def check_buttons(self):
+        if len(self.buttons) > 1:
+            raise AttributeError(f"buttons argument takes only one argument but {len(self.buttons)} were given")
+
     def __init__(self, *args, **kwargs):
         kwargs["surf"] = mini_surf
+        kwargs["destroy_on_click"] = True
+
         super().__init__(*args, **kwargs)
         self.main_rect.top = 0
         self.main_rect.left = width
-        self.speed = (15, 0)
+        self.speed = (15, 15)
 
     def update(self, clicked=False):
-        if self.main_rect.left > width - self.main_rect.width:
+        if self.main_rect.left > width - self.main_rect.width and not self.remove_self:
             self.main_rect.left -= self.speed[0]
             if self.main_rect.left < width - self.main_rect.width:
                 self.main_rect.left = width - self.main_rect.width
@@ -791,10 +807,15 @@ class MiniPopup(Popup):
                 self.remove()
 
         if self.remove_self:
-            self.main_rect.centery -= self.speed[1]
+            self.main_rect.x += self.speed[0]
             self.update_buttons()
-            if self.main_rect.bottom < 0:
-                popups.clear()
+            if self.main_rect.left > width:
+                popups.remove(self)
+
+    def update_buttons(self):
+        self.buttons[0].rect.bottomleft = self.main_rect.bottomleft
+        self.buttons[0].rect.y -= 20
+        self.buttons[0].rect.x += 20
 
 
 class LevelButtonsGroup:
@@ -870,12 +891,12 @@ class Hints:
             c_data = self.data[f'car{index + 1}']
             if car.is_placed:
                 if car.get_car_position(main_rect=True, fix_y=False, get_rotation=True) != c_data:
-                    self.get_ghost_car(index + 1, c_data[-1], get_ground_position(*c_data[:-1]), None)
+                    self.get_ghost_car(index + 1, c_data[-1], get_board_position(*c_data[:-1]), None)
                     break
         for index, car in enumerate(car_list):
             c_data = self.data[f'car{index + 1}']
             if not car.is_placed:
-                self.get_ghost_car(index + 1, c_data[-1], get_ground_position(*c_data[:-1]), None)
+                self.get_ghost_car(index + 1, c_data[-1], get_board_position(*c_data[:-1]), None)
                 break
 
     def get_ghost_car(self, number, rotation, position, old_position):
@@ -919,7 +940,7 @@ class Hints:
             car.reset_rotation()
             car.is_picked = True
             car.rotate(self.data[f'car{index + 1}'][-1])
-            car.main_rect.topleft = get_ground_position(*self.data[f'car{index + 1}'][:-1])
+            car.main_rect.topleft = get_board_position(*self.data[f'car{index + 1}'][:-1])
             car.place_closest()
             car.is_placed = True
             car.is_on_whiteboard = False
@@ -934,15 +955,17 @@ class Hints:
 
 read_data()
 
-popups = [MiniPopup(surf=mini_surf, title="123")] # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
+popups = [Popup(title ="Title", subtext='''texttexttext
+    text    
+text text text''')] # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
 grid = []
-ground = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
+board = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
 ground_pos[1] -= 50
-ground.center = ground_pos
+board.center = ground_pos
 for x in range(6):
     for y in range(6):
-        x_pos, y_pos = get_ground_position(x, y)
+        x_pos, y_pos = get_board_position(x, y)
         grid.append(pygame.Rect((x_pos, y_pos), [TILE_SIZE] * 2))
 
 show_menu()
