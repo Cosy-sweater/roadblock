@@ -66,15 +66,25 @@ def get_proportion(w: float = 1, h: float = 1, square: str = None):
             raise ValueError("Argument takes 'w' and 'h' values only")
 
 def get_tutorial_step(n: int):
+    button_next = Button(text="Далее", size=get_proportion(150, 70), command=get_tutorial_step, command_args=[n + 1])
     tutorial_popups = [
-        MiniPopup(title="123", subtext="312")
+        Popup(title='Правила', subtext='''Задача игры состоит в том, чтобы не дать красной машине сбежать из двора
+        Для этого нужно расставить на поле шесть полицейских машин так, чтобы заблокировать ей выезд''',
+              buttons=[button_next], destroy_on_click=True),
+
+        MiniPopup(title="Поле", subtext='''На поле присутствуют красная машина,
+дома, а также пустые поля для
+    размещения полицейских машин''', buttons=[button_next]),
+
+        MiniPopup(title="Полицейские машины", subtext='''Чтобы посмотреть полицейские машины,
+сдвиньте мышь в нижнюю часть экрана''', buttons=[button_next])
     ]
     popups.append(tutorial_popups[n - 1])
 
 
 default_surf = pygame.Surface(get_proportion(w=1500, h=800))
 default_surf.fill((44, 44, 44))
-mini_surf = pygame.Surface(get_proportion(w=450, h=200))
+mini_surf = pygame.Surface(get_proportion(w=500, h=300))
 mini_surf.fill((44, 44, 44))
 
 
@@ -718,15 +728,26 @@ class Popup:
     def draw(self):
         screen.blit(self.surf, self.main_rect)
         [button.draw() for button in self.buttons]
-        t = self.title.get_rect()
-        t.midtop = self.main_rect.midtop
-        t[1] += 15
-        screen.blit(self.title, t)
-        for i in enumerate(self.subtext):
-            t = i[1].get_rect()
+        if type(self) == Popup:
+            t = self.title.get_rect()
             t.midtop = self.main_rect.midtop
-            t[1] += 150 + 100 * i[0]
-            screen.blit(i[1], t)
+            t[1] += 15
+            screen.blit(self.title, t)
+            for i in enumerate(self.subtext):
+                t = i[1].get_rect()
+                t.midtop = self.main_rect.midtop
+                t[1] += 150 + 100 * i[0]
+                screen.blit(i[1], t)
+        else:
+            t = self.title.get_rect()
+            t.midtop = self.main_rect.midtop
+            t[1] += 15
+            screen.blit(self.title, t)
+            for i in enumerate(self.subtext):
+                t = i[1].get_rect()
+                t.midtop = self.main_rect.midtop
+                t[1] += 75 + 40 * i[0]
+                screen.blit(i[1], t)
 
     def remove(self):
         self.remove_self = True
@@ -782,7 +803,9 @@ class Popup:
                 t[1] -= get_proportion(h=100)[1]
 
         else:
-            pass
+            t = list(self.main_rect.midbottom)
+            t[1] -= get_proportion(h=100)[1]
+            self.buttons[0].rect.center = t
 
     def check_buttons(self):
         if len(self.buttons) > 3:
