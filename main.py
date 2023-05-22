@@ -22,7 +22,7 @@ width, height = 1920, 1080
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)  # , pygame.FULLSCREEN)
 
 font1 = pygame.font.SysFont('Comic Sans MS', int(30 * screen.get_width() / width))
-font2 = pygame.font.SysFont('Comic Sans MS', int(15 * screen.get_width() / width))
+font2 = pygame.font.SysFont('Comic Sans MS', int(24 * screen.get_width() / width))
 
 houses = {"house1": [[0, 0], [-1, 0], [1, 0]],
           "house2": [[0, 0], [0, -1], [1, -1], [0, 1]],
@@ -64,6 +64,12 @@ def get_proportion(w: float = 1, h: float = 1, square: str = None):
             return w * round(screen_w / width, 1), w * round(screen_w / width, 1)
         else:
             raise ValueError("Argument takes 'w' and 'h' values only")
+
+def get_tutorial_step(n: int):
+    tutorial_popups = [
+        MiniPopup(title="123", subtext="312")
+    ]
+    popups.append(tutorial_popups[n - 1])
 
 
 default_surf = pygame.Surface(get_proportion(w=1500, h=800))
@@ -168,7 +174,7 @@ def show_menu():
                 if event.button == 1:
                     clicked = True
                     exit_button.update()
-                    if not popups:
+                    if not [i for i in popups if type(i) is Popup]:
                         play_button.update()
                         resp = levels_button.update()
                         info_button.update()
@@ -218,6 +224,9 @@ def show_menu():
 def start_level(level=1):
     with open(f"{Path.cwd()}/levels/level_{level}.json", "r") as f:
         json_data = json.load(f)
+
+    [i.remove() for i in popups]
+    get_tutorial_step(1)
 
     def check_solved():
         if len(curent_tiles) != 36:
@@ -684,7 +693,7 @@ class Popup:
 
         self.title = font1.render(self.title, False, (0, 0, 0))
         self.subtext = self.subtext.split("\n")
-        self.subtext = [font1.render(i, False, (0, 0, 0)) for i in self.subtext]
+        self.subtext = [font2.render(i, False, (0, 0, 0)) for i in self.subtext]
         self.remove_self = False
 
     def update(self, clicked=False):
@@ -813,9 +822,10 @@ class MiniPopup(Popup):
                 popups.remove(self)
 
     def update_buttons(self):
-        self.buttons[0].rect.bottomleft = self.main_rect.bottomleft
-        self.buttons[0].rect.y -= 20
-        self.buttons[0].rect.x += 20
+        if self.buttons:
+            self.buttons[0].rect.bottomleft = self.main_rect.bottomleft
+            self.buttons[0].rect.y -= 20
+            self.buttons[0].rect.x += 20
 
 
 class LevelButtonsGroup:
@@ -955,9 +965,7 @@ class Hints:
 
 read_data()
 
-popups = [Popup(title ="Title", subtext='''texttexttext
-    text    
-text text text''')] # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
+popups = [MiniPopup(title ="Title", buttons=[Button(text="123")])] # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
 grid = []
 board = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
