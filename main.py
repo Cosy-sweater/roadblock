@@ -42,6 +42,7 @@ TILE_SIZE = 150 * round(screen_h / height, 1)
 
 
 def close_app():
+    save_data()
     pygame.quit()
     sys.exit()
 
@@ -77,7 +78,7 @@ def get_tutorial_step(n: int):
     размещения полицейских машин''', buttons=[button_next]),
 
         MiniPopup(title="Полицейские машины", subtext='''Чтобы посмотреть полицейские машины,
-сдвиньте мышь в нижнюю часть экрана''', buttons=[button_next])
+сдвиньте мышь в нижнюю часть экрана''', buttons=[button_next], destroy_on_event=lambda *_: car_surf.is_expended,) # do_on_destroy=f"get_tutorial_step({n + 1})")
     ]
     popups.append(tutorial_popups[n - 1])
 
@@ -106,7 +107,7 @@ def summon_hint_menu():
     global hints
     popups.append(Popup(
         title="Меню подсказок",
-        text="123",
+        subtext="123",
         buttons=[
             Button(text="1", size=(450, 450), command=hints.get_hint),
             Button(text="2", size=(450, 450), command=hints.solve)
@@ -142,7 +143,7 @@ def show_menu():
                            command=set_page, command_args=[2], get_answ=1)
     info_button = Button(size=get_proportion(450, 150),
                          position=(screen_w / 2 - 175 * get_proportion()[0], 570 * get_proportion()[1]), text="Инфо",
-                         text_align="сenter")
+                         text_align="сenter", command=set_page, command_args=[4])
     back_button = Button(size=get_proportion(50, 50, square="h"), position=(0, 0), text="<-", command=set_page,
                          command_args=[1])
 
@@ -159,7 +160,7 @@ def show_menu():
 
     unlock_all_button = Button(size=get_proportion(450, 150),
                                position=(screen_w / 2 - 175 * get_proportion()[0], 300 * get_proportion()[1]),
-                               text="Открыть все уровни", command=unlock_all)
+                               text="Открыть все уровни", command=unlock_all,)
 
     curent_page = 1
     prev_page = curent_page
@@ -168,6 +169,7 @@ def show_menu():
     l2 = [level_buttons, button_prev, button_next]
     l2[0].draw()
     l3 = [unlock_all_button]
+    l4 = [Button(text="123")]
 
     while True:
         screen.fill((128, 128, 128))
@@ -177,9 +179,8 @@ def show_menu():
             prev_page = curent_page
 
         for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
+            if event.type == QUIT or (event.type == KEYDOWN and event.key == K_F4 and (key[K_LALT] or key[K_LALT])):
+                close_app()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     clicked = True
@@ -208,9 +209,14 @@ def show_menu():
             [i.hide() for i in l2]
         if curent_page == 3:
             [i.show() for i in l3]
-            [i.update() for i in l3]
+            [i.update() for i in l3 if clicked]
         else:
             [i.hide() for i in l3]
+        if curent_page == 4:
+            [i.show() for i in l4]
+            [i.update() for i in l4]
+        else:
+            [i.hide() for i in l4]
         l2[curent_levels_page - 1].update(clicked if curent_page == prev_page else False)
 
         # Draw.
@@ -232,11 +238,13 @@ def show_menu():
 
 
 def start_level(level=1):
+    global saved_data
     with open(f"{Path.cwd()}/levels/level_{level}.json", "r") as f:
         json_data = json.load(f)
+    if level > saved_data["max_level"]:
+        saved_data["max_level"] = level
 
     [i.remove() for i in popups]
-    get_tutorial_step(1)
 
     def check_solved():
         if len(curent_tiles) != 36:
@@ -264,11 +272,12 @@ def start_level(level=1):
                 for tile in result[1]:
                     path_rects.append(PathRect(get_board_position(*tile[::-1])))
 
-    global car_surf, car_list, hint_rects, hints
+    global car_surf, car_list, hint_rects, hints, game_loop
     house_list = []
     car_list = []
     path_rects = []
     hints = Hints(json_data["solution"])
+    game_loop = True
 
     for i in json_data:
         if "house" in i:
@@ -288,18 +297,17 @@ def start_level(level=1):
     exit_button = Button(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
                          size=[50 * get_proportion()[0]] * 2,
                          color=(255, 0, 0), text="X")
-    hint_button = Button(position=get_proportion(w=0, h=540), command=summon_hint_menu)
+    hint_button = Button(position=get_proportion(w=0, h=450), size=get_proportion(100, 100), command=summon_hint_menu)
 
-    while True:
+    while game_loop:
         curent_tiles = ocupied_tiles.copy()
         screen.fill((0, 0, 0))
 
         clicked = False
 
         for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
+            if event.type == QUIT or (event.type == KEYDOWN and event.key == K_F4 and (key[K_LALT] or key[K_LALT])):
+                close_app()
             if event.type == pygame.MOUSEWHEEL:
                 for car in car_list:
                     if car.is_picked:
@@ -332,7 +340,12 @@ def start_level(level=1):
                     submit_button.update()
                 except FunctionExit:
                     popups.extend(
-                        [Popup(title="TeSt", buttons=[Button(text="123"), Button(text="123"), Button(text="123")])])
+                        [Popup(title="TeSt", buttons=[
+                            Button(text="M", command=exec, command_args=['''global game_loop
+game_loop = False''']),
+                            Button(text="N", command=start_level, command_args=[(level + 1) if level < 60 else level]),  # max level alert
+                            Button(text="R", command=start_level, command_args=[level])]
+                               , destroy_on_click=True)])
         update_popups(clicked)
 
         if len(curent_tiles) != 36:
@@ -686,13 +699,15 @@ class Button:
 
 
 class Popup:
-    def __init__(self, surf=default_surf, title="", subtext="", buttons=[], big_buttons=False, destroy_on_click=False):
+    def __init__(self, surf=default_surf, title="", subtext="", buttons=[], big_buttons=False, destroy_on_click=False, destroy_on_event=lambda *_: False, do_on_destroy="pass"):
         self.title, self.subtext = title, subtext
         self.surf = surf
         self.buttons = buttons.copy()
         self.big_buttons = big_buttons
         self.destroy_on_click = destroy_on_click
         self.check_buttons()
+        self.destroy_on_event = destroy_on_event
+        self.on_destroy_action = do_on_destroy
 
         self.main_rect = self.surf.get_rect()
         self.main_rect.center = screen.get_rect().center
@@ -719,11 +734,16 @@ class Popup:
             if self.destroy_on_click and any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in self.buttons]):
                 self.remove()
 
+        if self.destroy_on_event():
+            self.remove_self = True
+
         if self.remove_self:
             self.main_rect.centery -= self.speed[1]
             self.update_buttons()
             if self.main_rect.bottom < 0:
                 popups.remove(self)
+                exec(self.on_destroy_action)
+
 
     def draw(self):
         screen.blit(self.surf, self.main_rect)
@@ -838,11 +858,15 @@ class MiniPopup(Popup):
             if self.destroy_on_click and any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in self.buttons]):
                 self.remove()
 
+        if self.destroy_on_event():
+            self.remove_self = True
+
         if self.remove_self:
             self.main_rect.x += self.speed[0]
             self.update_buttons()
             if self.main_rect.left > width:
                 popups.remove(self)
+                exec(self.on_destroy_action)
 
     def update_buttons(self):
         if self.buttons:
@@ -988,7 +1012,7 @@ class Hints:
 
 read_data()
 
-popups = [MiniPopup(title ="Title", buttons=[Button(text="123")])] # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
+popups = [] # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
 grid = []
 board = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
