@@ -1,7 +1,1 @@
-{
-  "rotation_inversion": false,
-  "max_level": 1,
-  "muted": true,
-  "tutorial": false,
-  "first_launch": false
-}
+{"rotation_inversion": false, "max_level": 1, "muted": true, "tutorial": false, "first_launch": false}
