@@ -35,6 +35,8 @@ class Button:
         self.bool_state = self.kwargs.get("bool_state")
         self.get_ansf = get_ansf
         self.is_locked = locked
+        self.mouse_hover = False
+        self.image_size = 0
         if not self.rect_color:
             self.rect_color = (100, 255, 0)
 
@@ -46,7 +48,7 @@ class Button:
             return
         if self.rect.collidepoint(pygame.mouse.get_pos()):
             if not clicked:
-                pass
+                self.mouse_hover = True
             else:
                 if self.kwargs.get("command"):
                     if self.kwargs.get("command_args"):
@@ -97,29 +99,3 @@ class Button:
 
     def switch_lock(self):
         self.is_locked = not self.is_locked
-
-
-def InOutEase(step: float, last_value: int):
-    # 0.02 => 100
-    from math import cos, pi
-    t = 0
-    while t < 2:
-        t += step
-        yield round(-(cos(pi * t) - 1) / 2 * last_value, 1)
-
-
-def OutEase(step: float, last_value: int):
-    from math import sin, pi
-    t = 0
-    c = 0
-    while c < 1:
-        t += step
-        c = sin(t * pi / 2)
-        yield c
-
-
-# import time
-# a = InOutEase(0.02, 500)
-# while True:
-#     print(next(a))
-#     time.sleep(0.1)

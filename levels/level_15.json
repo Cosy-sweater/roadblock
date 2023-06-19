@@ -1,1 +1,1 @@
-{"car": [3, 3], "house1": [1, 0, 0], "house2": [0, 3, 0], "house3": [4, 0, 3], "house4": [5, 5, 2], "difficulty": [15, "starter"], "solution": {"car1": [1, 5, 2], "car2": [1, 1, 2], "car3": [3, 2, 1], "car4": [5, 2, 2], "car5": [3, 4, 3], "car6": [2, 3, 2]}, "time": 0.0}
+{"car": [3, 3], "house1": [1, 0, 0], "house2": [0, 3, 0], "house3": [4, 0, 3], "house4": [5, 5, 2], "difficulty": [15, "starter"], "solution": {"car1": [1, 5, 2], "car2": [1, 1, 2], "car3": [3, 2, 1], "car4": [5, 2, 2], "car5": [3, 4, 3], "car6": [2, 3, 2]}, "time": 999.999}

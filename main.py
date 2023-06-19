@@ -1,6 +1,7 @@
 # buttons default sizes: 150x150, 450x150, 450x450, 150x70, 50x50
 import sys
 import json
+import time
 from pathlib import Path
 import warnings
 
@@ -8,7 +9,7 @@ import level_solver
 
 import pygame
 from pygame.locals import *
-from my_widgets import Button, InOutEase
+from my_widgets import Button
 from easing_functions import *
 
 if __name__ != "__main__":
@@ -25,7 +26,9 @@ screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)  # , pygame.FULLSCRE
 
 font1 = pygame.font.SysFont('Comic Sans MS', int(30 * screen.get_width() / width))
 font2 = pygame.font.SysFont('Comic Sans MS', int(24 * screen.get_width() / width))
+font3 = pygame.font.SysFont('Comic Sans MS', int(28 * screen.get_width() / width))
 
+levels_exist = 15
 houses = {"house1": [[0, 0], [-1, 0], [1, 0]],
           "house2": [[0, 0], [0, -1], [1, -1], [0, 1]],
           "house3": [[0, 0], [0, -1], [-1, -1], [0, 1]],
@@ -73,20 +76,45 @@ def get_tutorial_step(n: int):
     button_next = Button(text="Далее", size=get_proportion(150, 70), command=get_tutorial_step, command_args=[n + 1])
     tutorial_popups = [
         Popup(title='Правила', subtext='''Задача игры состоит в том, чтобы не дать красной машине сбежать из двора
-        Для этого нужно расставить на поле шесть полицейских машин так, чтобы заблокировать ей выезд''',
+Для этого нужно расставить на поле шесть полицейских машин так, чтобы заблокировать ей выезд''',
               buttons=[button_next], destroy_on_click=True),
 
         MiniPopup(title="Поле", subtext='''На поле присутствуют красная машина,
 дома, а также пустые поля для
-    размещения полицейских машин''', buttons=[button_next]),
+размещения полицейских машин''', buttons=[button_next]),
 
         MiniPopup(title="Полицейские машины", subtext='''Чтобы посмотреть полицейские машины,
-сдвиньте мышь в нижнюю часть экрана''', buttons=[button_next], destroy_on_event=lambda *_: car_surf.is_expended, do_on_destroy=f'get_tutorial_step({n + 1})'),
+сдвиньте мышь в нижнюю часть экрана''', buttons=[button_next], destroy_on_event=lambda *_: car_surf.is_expended,
+                  do_on_destroy=f'get_tutorial_step({n + 1})'),
+
         Popup(title="Полицейские машины", subtext='''Чтобы поставить полицейскую машинну на поле, нужно навести на неё мышь
-        и перетянуть её в нужную часть поля
-        Чтобы вращать машину, нужно вращать ролик мыши''',
-              buttons=[button_next], destroy_on_click=True)
+и перетянуть её в нужную часть поля
+        
+Чтобы вращать машину, нужно вращать ролик мыши''',
+              buttons=[button_next], destroy_on_click=True),
+
+        Popup(title="Красная машины", subtext='''Красная машина может двигаться только по свободным клеткам
+Она считается заблокированной тогда, когда не остаётся путей, ведущих к краю поля
+            
+Чтобы пройти уровень, нужно заблокировать красную машину,
+разместив при этом все полицейские машины''',
+              buttons=[button_next], destroy_on_click=True),
+
+        Popup(title="Подсказки", subtext='''Если не получается пройти уровень, 
+можно воспользоваться подсказкой
+        
+        Меню подсказок можно вызвать кнопкой слева''',
+              buttons=[button_next], destroy_on_click=True),
+
+        MiniPopup(title="Подсказки", subtext='''Если воспользоваться меню подсказок,
+         то время прохождения уровня
+          не будет засчитано''',
+                  buttons=[
+                      Button(text="Закончить", size=get_proportion(150, 70), command=lambda *_: None, command_args=[])],
+                  destroy_on_click=True)
     ]
+    if n > len(tutorial_popups):
+        return
     popups.append(tutorial_popups[n - 1])
 
 
@@ -115,7 +143,7 @@ def summon_hint_menu():
     global hints
     popups.append(Popup(
         title="Меню подсказок",
-        subtext="123",
+        subtext="",
         buttons=[
             Button(text="1", size=(450, 450), command=hints.get_hint),
             Button(text="2", size=(450, 450), command=hints.solve)
@@ -123,6 +151,15 @@ def summon_hint_menu():
         big_buttons=True,
         destroy_on_click=True
     ))
+
+
+def get_time_of_levels():
+    time_list = []
+    for i in range(1, levels_exist + 1):
+        with open(f'{Path.cwd()}/levels/level_{i}.json', "r") as f:
+            time_list.append(json.load(f)["time"])
+    time_list = time_list + [0.0] * (60 - levels_exist)
+    return time_list
 
 
 def show_menu():
@@ -135,6 +172,18 @@ def show_menu():
     def unlock_all():
         saved_data["max_level"] = 60
         save_data()
+
+    def reset_data():
+        global saved_data
+        saved_data = {"rotation_inversion": False, "max_level": 1, "muted": True, "tutorial": True}
+        save_data()
+
+        for i in range(1, levels_exist + 1):
+            with open(f'{Path.cwd()}/levels/level_{i}.json', "r") as f:
+                saved = json.load(f)
+                saved["time"] = 999.999
+            with open(f'{Path.cwd()}/levels/level_{i}.json', "w") as f:
+                json.dump(saved, f)
 
     exit_button = Button(command=close_app, position=(screen_w - 50, screen_h - 50),
                          size=(50, 50),
@@ -163,12 +212,16 @@ def show_menu():
                              text="S", command=set_page, command_args=[3])
 
     level_buttons = LevelButtonsGroup()
-    button_next = Button(command=level_buttons.next, position=(screen_w - get_proportion(w=100)[0], screen_h // 2), text=">")
+    button_next = Button(command=level_buttons.next, position=(screen_w - get_proportion(w=100)[0], screen_h // 2),
+                         text=">")
     button_prev = Button(command=level_buttons.prev, position=(0, screen_h // 2), text="<")
 
     unlock_all_button = Button(size=get_proportion(450, 150),
                                position=(screen_w / 2 - 175 * get_proportion()[0], 300 * get_proportion()[1]),
                                text="Открыть все уровни", command=unlock_all, )
+    reset_button = Button(size=get_proportion(450, 150),
+                          position=(screen_w / 2 - 175 * get_proportion()[0], 500 * get_proportion()[1]),
+                          text="Сброс", command=reset_data, )
 
     curent_page = 1
     prev_page = curent_page
@@ -176,7 +229,7 @@ def show_menu():
     l1 = [play_button, levels_button, info_button, mute_button, settings_button]
     l2 = [level_buttons, button_prev, button_next]
     l2[0].draw()
-    l3 = [unlock_all_button]
+    l3 = [unlock_all_button, reset_button]
     l4 = [Button(text="123")]
 
     while True:
@@ -243,7 +296,8 @@ def show_menu():
         pygame.display.flip()
         fpsClock.tick(fps)
 
-    # start_level(1)
+
+# start_level(1)
 
 
 def start_level(level=1):
@@ -255,7 +309,9 @@ def start_level(level=1):
 
     [i.remove() for i in popups]
 
-    get_tutorial_step(1)
+    if saved_data["tutorial"]:
+        saved_data["tutorial"] = False
+        get_tutorial_step(1)
 
     def check_solved():
         if len(curent_tiles) != 36:
@@ -277,18 +333,24 @@ def start_level(level=1):
 
         result = level_solver.run(maze)
         if not result[0]:
+            with open(f"{Path.cwd()}/levels/level_{level}.json", "w") as f:
+                t = round(time.perf_counter() - start_time, 1)
+                json_data["time"] = min(t if start_time != -1 else 999.999, json_data["time"])
+                json.dump(json_data, f)
             raise FunctionExit
         else:
             if not path_rects:
                 for tile in result[1]:
                     path_rects.append(PathRect(get_board_position(*tile[::-1])))
 
-    global car_surf, car_list, hint_rects, hints, game_loop
+    global car_surf, car_list, hint_rects, hints, game_loop, start_time, cheated
     house_list = []
     car_list = []
     path_rects = []
     hints = Hints(json_data["solution"])
     game_loop = True
+    start_time = -1
+    cheated = False
 
     for i in json_data:
         if "house" in i:
@@ -341,6 +403,8 @@ def start_level(level=1):
                     flag = True
             if not flag:
                 curent_tiles.extend(car_tiles)
+            if car.is_picked and start_time == -1 and not cheated:
+                start_time = time.perf_counter()
         hints.update()
 
         if clicked:
@@ -662,12 +726,18 @@ class Popup:
         self.ease_duration = 0.3 * 60
         self.ease_clock = 0
         self.ease_clock2 = 0
-        self.ease_generator_x = QuadEaseInOut(start=self.main_rect.centerx, end=screen.get_rect().centerx, duration=self.ease_duration)
-        self.ease_generator_y = CubicEaseInOut(start=screen.get_rect().centery, end=-screen.get_rect().centery, duration=self.ease_duration)
+        self.ease_generator_x = QuadEaseInOut(start=self.main_rect.centerx, end=screen.get_rect().centerx,
+                                              duration=self.ease_duration)
+        self.ease_generator_y = CubicEaseInOut(start=screen.get_rect().centery, end=-screen.get_rect().centery,
+                                               duration=self.ease_duration)
 
         self.title = font1.render(self.title, False, (0, 0, 0))
         self.subtext = self.subtext.split("\n")
-        self.subtext = [font2.render(i, False, (0, 0, 0)) for i in self.subtext]
+        if type(self) is Popup:
+            self.subtext = [font3.render(i, False, (0, 0, 0)) for i in self.subtext]
+        else:
+            self.subtext = [font2.render(i, False, (0, 0, 0)) for i in self.subtext]
+
         self.remove_self = False
         self.close_button = Button(text="<", size=(50, 50), position=(-200, -200), command=self.remove)
         self.show_close_button = show_close_button
@@ -683,7 +753,7 @@ class Popup:
             [i.update() for i in self.buttons]
             if self.destroy_on_click and (any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in
                                                self.buttons]) or self.close_button.rect.collidepoint(
-                    pygame.mouse.get_pos())):
+                pygame.mouse.get_pos())):
                 self.remove()
 
         if self.destroy_on_event():
@@ -802,12 +872,15 @@ class MiniPopup(Popup):
         self.main_rect.top = 0
         self.main_rect.left = width
         self.speed = (15, 15)
+        self.ease_duration = 0.5 * 60
+        self.ease_generator_x = QuadEaseInOut(start=screen_w + self.main_rect.width,
+                                              end=screen_w - self.main_rect.width,
+                                              duration=self.ease_duration)
 
     def update(self, clicked=False):
         if self.main_rect.left > width - self.main_rect.width and not self.remove_self:
-            self.main_rect.left -= self.speed[0]
-            if self.main_rect.left < width - self.main_rect.width:
-                self.main_rect.left = width - self.main_rect.width
+            self.ease_clock += 1
+            self.main_rect.left = self.ease_generator_x.ease(self.ease_clock)
             self.update_buttons()
 
             return
@@ -815,15 +888,18 @@ class MiniPopup(Popup):
             [i.update() for i in self.buttons]
             if self.destroy_on_click and (any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in
                                                self.buttons]) or self.close_button.rect.collidepoint(
-                    pygame.mouse.get_pos())):
+                pygame.mouse.get_pos())):
                 self.remove()
 
         if self.destroy_on_event():
-            exec(self.on_destroy_action)
-            self.remove_self = True
+            if not self.remove_self:
+                exec(self.on_destroy_action)
+                self.remove_self = True
+                self.ease_clock = self.ease_duration
 
         if self.remove_self:
-            self.main_rect.x += self.speed[0]
+            self.ease_clock -= 1
+            self.main_rect.left = self.ease_generator_x.ease(self.ease_clock)
             self.update_buttons()
             if self.main_rect.left > width:
                 popups.remove(self)
@@ -868,7 +944,16 @@ class LevelButtonsGroup:
     def draw(self):
         screen.fill((128, 128, 128))
         screen.blit(self.bg_surf, (0, 0))
-        [i.draw() for i in self.levels[self.curent_page * 15:self.curent_page * 15 + 15][::-1]]
+        buttons_to_draw = [i for i in self.levels[self.curent_page * 15:self.curent_page * 15 + 15][::-1]]
+        [i.draw() for i in buttons_to_draw]
+        t = [i for i in get_time_of_levels()[self.curent_page * 15:self.curent_page * 15 + 15][::-1]]
+        for i in enumerate(t):
+            pos = list(buttons_to_draw[i[0]].rect.midbottom)
+            pos[1] -= get_proportion(h=10)[1]
+            text = font2.render(str(i[1]) if i[1] != 999.999 else "", False, (0, 0, 0))
+            a = text.get_rect()
+            a.midtop = pos
+            screen.blit(text, a)
 
     def hide(self):
         [button.hide() for button in self.levels]
@@ -902,6 +987,9 @@ class Hints:
         self.surf2.set_alpha(275)
 
     def get_hint(self):
+        global start_time, cheated
+        cheated = True
+        start_time = -1
         self.update()
         if self.ghost_car:
             return
@@ -955,6 +1043,9 @@ class Hints:
                 screen.blit(self.surf, rect)
 
     def solve(self):
+        global start_time, cheated
+        cheated = True
+        start_time = -1
         for index, car in enumerate(car_list):
             car.reset_rotation()
             car.is_picked = True
