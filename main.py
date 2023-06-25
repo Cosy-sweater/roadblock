@@ -1,4 +1,5 @@
 # buttons default sizes: 150x150, 450x150, 450x450, 150x70, 50x50
+# restart, menu popup bug
 import sys
 import json
 import time
@@ -158,7 +159,7 @@ def get_time_of_levels():
     for i in range(1, levels_exist + 1):
         with open(f'{Path.cwd()}/levels/level_{i}.json', "r") as f:
             time_list.append(json.load(f)["time"])
-    time_list = time_list + [0.0] * (60 - levels_exist)
+    time_list = time_list + [999.999] * (60 - levels_exist)
     return time_list
 
 
@@ -257,6 +258,12 @@ def show_menu():
                         back_button.update()
                         if resp == 1:
                             clicked = False
+            if event.type == pygame.KEYDOWN:
+                if curent_page == 2:
+                    if event.key == pygame.K_LEFT:
+                        level_buttons.prev()
+                    if event.key == pygame.K_RIGHT:
+                        level_buttons.next()
 
         # Update.
         update_popups(clicked)
@@ -343,7 +350,11 @@ def start_level(level=1):
                 for tile in result[1]:
                     path_rects.append(PathRect(get_board_position(*tile[::-1])))
 
-    global car_surf, car_list, hint_rects, hints, game_loop, start_time, cheated
+    def end_gameloop():
+        nonlocal game_loop
+        game_loop = False
+
+    global car_surf, car_list, hint_rects, hints, start_time, cheated
     house_list = []
     car_list = []
     path_rects = []
@@ -351,6 +362,7 @@ def start_level(level=1):
     game_loop = True
     start_time = -1
     cheated = False
+    flag2 = False
 
     for i in json_data:
         if "house" in i:
@@ -370,6 +382,7 @@ def start_level(level=1):
     exit_button = Button(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
                          size=[50 * get_proportion()[0]] * 2,
                          color=(255, 0, 0), text="X")
+    menu_button = Button(command=end_gameloop, position=(0, 0), size=get_proportion(50, 50), text="<")
     hint_button = Button(position=get_proportion(w=0, h=450), size=get_proportion(100, 100), command=summon_hint_menu)
 
     while game_loop:
@@ -407,21 +420,24 @@ def start_level(level=1):
                 start_time = time.perf_counter()
         hints.update()
 
-        if clicked:
-            exit_button.update()
-            if not popups:
-                hint_button.update()
-                try:
-                    submit_button.update()
-                except FunctionExit:
-                    popups.extend(
-                        [Popup(title="TeSt", buttons=[
-                            Button(text="M", command=exec, command_args=['''global game_loop
-game_loop = False''']),
-                            Button(text="N", command=start_level, command_args=[level + 1]) if level < 60 else None,
-                            Button(text="R", command=start_level, command_args=[level])]
-                               , destroy_on_click=True)])
+        menu_button.update(clicked)
+        exit_button.update(clicked)
+        if not popups:
+            hint_button.update(clicked)
+            try:
+                submit_button.update(clicked)
+            except FunctionExit:
+                popups.append(
+                    Popup(title="TeSt", buttons=[
+                        Button(text="M", command=end_gameloop, command_args=[]),
+                        Button(text="N", command=start_level, command_args=[level + 1]) if level < 60 else None,
+                        Button(text="R", command=start_level, command_args=[level])]
+                           , destroy_on_click=True))
+                flag2 = True
         update_popups(clicked)
+        if popups:
+            if popups[-1].remove_self and flag2:
+                return
 
         if len(curent_tiles) != 36:
             path_rects.clear()
@@ -439,6 +455,7 @@ game_loop = False''']),
         submit_button.draw()
         hints.draw()
         car_surf.draw()
+        menu_button.draw()
 
         # top level
         last = None
@@ -702,9 +719,11 @@ class FunctionExit(Exception):
 
 
 class Popup:
-    def __init__(self, surf=default_surf, title="", subtext="", buttons=[], big_buttons=False, destroy_on_click=False,
+    def __init__(self, surf=default_surf, title: str = "", subtext="", buttons=[], big_buttons=False,
+                 destroy_on_click=False,
                  destroy_on_event=lambda *_: False, do_on_destroy="pass", show_close_button=True):
         self.title, self.subtext = title, subtext
+        self.text_title = title
         self.surf = surf
         self.buttons = buttons.copy()
         try:
@@ -749,8 +768,8 @@ class Popup:
             self.update_buttons()
 
             return
+        [i.update(clicked) for i in self.buttons]
         if clicked:
-            [i.update() for i in self.buttons]
             if self.destroy_on_click and (any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in
                                                self.buttons]) or self.close_button.rect.collidepoint(
                 pygame.mouse.get_pos())):
@@ -765,7 +784,8 @@ class Popup:
             self.ease_clock2 += 1
             self.update_buttons()
             if self.main_rect.bottom < 0:
-                popups.remove(self)
+                if self in popups:
+                    popups.remove(self)
 
     def draw(self):
         screen.blit(self.surf, self.main_rect)
