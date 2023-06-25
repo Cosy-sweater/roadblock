@@ -269,7 +269,7 @@ def show_menu():
                         if event.key == pygame.K_RIGHT:
                             level_buttons.next()
         except FunctionExit:
-            pass
+            popups.clear()
 
         # Update.
         try:
@@ -294,7 +294,7 @@ def show_menu():
                 [i.hide() for i in l4]
             l2[curent_levels_page - 1].update(clicked if curent_page == prev_page else False)
         except FunctionExit:
-            pass
+            popups.clear()
 
         # Draw.
         if curent_page == 1:
@@ -321,7 +321,7 @@ def start_level(level=1):
     with open(f"{Path.cwd()}/levels/level_{level}.json", "r") as f:
         json_data = json.load(f)
     if level > saved_data["max_level"]:
-        return
+        saved_data["max_level"] = level
 
     popups.clear()
 
