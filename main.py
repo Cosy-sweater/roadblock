@@ -124,6 +124,9 @@ default_surf.fill((44, 44, 44))
 mini_surf = pygame.Surface(get_proportion(w=500, h=300))
 mini_surf.fill((44, 44, 44))
 
+lock_image = pygame.image.load(f'{Path.cwd()}/img/lock.png').convert_alpha()
+lock_image = pygame.transform.scale(lock_image, get_proportion(150, 150))
+
 
 def rotate(data, step=1):
     res = []
@@ -240,52 +243,58 @@ def show_menu():
         if prev_page != curent_page:
             prev_page = curent_page
 
-        for event in pygame.event.get():
-            if event.type == QUIT or (event.type == KEYDOWN and event.key == K_F4 and (key[K_LALT] or key[K_LALT])):
-                close_app()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:
-                    clicked = True
-                    exit_button.update()
-                    if not [i for i in popups if type(i) is Popup]:
-                        play_button.update()
-                        resp = levels_button.update()
-                        info_button.update()
-                        mute_button.update()
-                        settings_button.update()
-                        button_next.update()
-                        button_prev.update()
-                        back_button.update()
-                        if resp == 1:
-                            clicked = False
-            if event.type == pygame.KEYDOWN:
-                if curent_page == 2:
-                    if event.key == pygame.K_LEFT:
-                        level_buttons.prev()
-                    if event.key == pygame.K_RIGHT:
-                        level_buttons.next()
+        try:
+            for event in pygame.event.get():
+                if event.type == QUIT or (event.type == KEYDOWN and event.key == K_F4 and (key[K_LALT] or key[K_LALT])):
+                    close_app()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        clicked = True
+                        exit_button.update()
+                        if not [i for i in popups if type(i) is Popup]:
+                            play_button.update()
+                            resp = levels_button.update()
+                            info_button.update()
+                            mute_button.update()
+                            settings_button.update()
+                            button_next.update()
+                            button_prev.update()
+                            back_button.update()
+                            if resp == 1:
+                                clicked = False
+                if event.type == pygame.KEYDOWN:
+                    if curent_page == 2:
+                        if event.key == pygame.K_LEFT:
+                            level_buttons.prev()
+                        if event.key == pygame.K_RIGHT:
+                            level_buttons.next()
+        except FunctionExit:
+            pass
 
         # Update.
-        update_popups(clicked)
-        if curent_page == 1:
-            [i.show() for i in l1]
-        else:
-            [i.hide() for i in l1]
-        if curent_page == 2:
-            [i.show() for i in l2]
-        else:
-            [i.hide() for i in l2]
-        if curent_page == 3:
-            [i.show() for i in l3]
-            [i.update() for i in l3 if clicked]
-        else:
-            [i.hide() for i in l3]
-        if curent_page == 4:
-            [i.show() for i in l4]
-            [i.update() for i in l4]
-        else:
-            [i.hide() for i in l4]
-        l2[curent_levels_page - 1].update(clicked if curent_page == prev_page else False)
+        try:
+            update_popups(clicked)
+            if curent_page == 1:
+                [i.show() for i in l1]
+            else:
+                [i.hide() for i in l1]
+            if curent_page == 2:
+                [i.show() for i in l2]
+            else:
+                [i.hide() for i in l2]
+            if curent_page == 3:
+                [i.show() for i in l3]
+                [i.update() for i in l3 if clicked]
+            else:
+                [i.hide() for i in l3]
+            if curent_page == 4:
+                [i.show() for i in l4]
+                [i.update() for i in l4]
+            else:
+                [i.hide() for i in l4]
+            l2[curent_levels_page - 1].update(clicked if curent_page == prev_page else False)
+        except FunctionExit:
+            pass
 
         # Draw.
         if curent_page == 1:
@@ -312,9 +321,9 @@ def start_level(level=1):
     with open(f"{Path.cwd()}/levels/level_{level}.json", "r") as f:
         json_data = json.load(f)
     if level > saved_data["max_level"]:
-        saved_data["max_level"] = level
+        return
 
-    [i.remove() for i in popups]
+    popups.clear()
 
     if saved_data["tutorial"]:
         saved_data["tutorial"] = False
@@ -344,6 +353,8 @@ def start_level(level=1):
                 t = round(time.perf_counter() - start_time, 1)
                 json_data["time"] = min(t if start_time != -1 else 999.999, json_data["time"])
                 json.dump(json_data, f)
+            if not cheated:
+                saved_data["max_level"] = level + 1
             raise FunctionExit
         else:
             if not path_rects:
@@ -353,6 +364,7 @@ def start_level(level=1):
     def end_gameloop():
         nonlocal game_loop
         game_loop = False
+        raise FunctionExit
 
     global car_surf, car_list, hint_rects, hints, start_time, cheated
     house_list = []
@@ -953,19 +965,31 @@ class LevelButtonsGroup:
         self.bg_surf = pygame.Surface(screen.get_size())
         self.bg_surf.set_alpha(0)
 
+        self.max_level_old = -1
+
     def update(self, clicked=False):
         self.bg_surf.fill(self.bg_colors[self.curent_page])
         if self.frame <= 150:
             self.frame += 6
         self.bg_surf.set_alpha(self.frame)
-        [button.update() for button in
-         self.levels[self.curent_page * 15:self.curent_page * 15 + 16]] if clicked else None
+        [button.update(clicked) for button in
+         self.levels[self.curent_page * 15:self.curent_page * 15 + 16]]
+        if saved_data["max_level"] != self.max_level_old:
+            for i in enumerate(self.levels):
+                if i[0] + 1 > saved_data["max_level"]:
+                    i[1].is_locked = True
+                else:
+                    i[1].is_locked = False
+            self.max_level_old = saved_data["max_level"]
 
     def draw(self):
         screen.fill((128, 128, 128))
         screen.blit(self.bg_surf, (0, 0))
         buttons_to_draw = [i for i in self.levels[self.curent_page * 15:self.curent_page * 15 + 15][::-1]]
         [i.draw() for i in buttons_to_draw]
+        for i in buttons_to_draw:
+            if i.is_locked:
+                screen.blit(lock_image, i.rect)
         t = [i for i in get_time_of_levels()[self.curent_page * 15:self.curent_page * 15 + 15][::-1]]
         for i in enumerate(t):
             pos = list(buttons_to_draw[i[0]].rect.midbottom)
