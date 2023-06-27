@@ -1,5 +1,6 @@
 # buttons default sizes: 150x150, 450x150, 450x450, 150x70, 50x50
-# restart, menu popup bug
+# max_level unsync bug
+# sound credits: https://www.zapsplat.com
 import sys
 import json
 import time
@@ -10,8 +11,8 @@ import level_solver
 
 import pygame
 from pygame.locals import *
-from my_widgets import Button
 from easing_functions import *
+import builtins
 
 if __name__ != "__main__":
     sys.exit()
@@ -28,6 +29,30 @@ screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)  # , pygame.FULLSCRE
 font1 = pygame.font.SysFont('Comic Sans MS', int(30 * screen.get_width() / width))
 font2 = pygame.font.SysFont('Comic Sans MS', int(24 * screen.get_width() / width))
 font3 = pygame.font.SysFont('Comic Sans MS', int(28 * screen.get_width() / width))
+
+class Volume(object):
+    def __init__(self, a):
+        self.volume = a
+        self.old_volume = a
+
+    def set(self, value):
+        self.volume = value
+        volume_slider.value = value
+        volume_slider.set_slider_pos_to_value()
+        set_volume(self.volume)
+
+    def get(self):
+        return self.volume
+
+global_volume = Volume(1)
+
+
+sound_list = []
+click_sound = [pygame.mixer.Sound(f"{Path.cwd()}/sounds/click_sound.mp3")] # is pointer for using global volume
+builtins.click_sound = click_sound
+
+sound_list.append(click_sound)
+from my_widgets import Button, Slider
 
 levels_exist = 15
 houses = {"house1": [[0, 0], [-1, 0], [1, 0]],
@@ -72,11 +97,15 @@ def get_proportion(w: float = 1, h: float = 1, square: str = None):
         else:
             raise ValueError("Argument takes 'w' and 'h' values only")
 
+def set_volume(value):
+    for i in sound_list:
+        i[0].set_volume(value)
+
 
 def get_tutorial_step(n: int):
     button_next = Button(text="Далее", size=get_proportion(150, 70), command=get_tutorial_step, command_args=[n + 1])
     tutorial_popups = [
-        Popup(title='Правила', subtext='''Задача игры состоит в том, чтобы не дать красной машине сбежать из двора
+        Popup(title='Правила', subtext='''Задача игры состоит в том, чтобы не дать красной машине выбраться из двора
 Для этого нужно расставить на поле шесть полицейских машин так, чтобы заблокировать ей выезд''',
               buttons=[button_next], destroy_on_click=True),
 
@@ -166,8 +195,9 @@ def get_time_of_levels():
     return time_list
 
 
+volume_slider = Slider(title="Громкость", value=1, variable=[global_volume], position=(screen_w / 2 - 175 * get_proportion()[0], 700 * get_proportion()[1]))
 def show_menu():
-    global curent_page, prev_page
+    global curent_page, prev_page, volume
 
     def set_page(n):
         global curent_page, prev_page
@@ -175,11 +205,23 @@ def show_menu():
 
     def unlock_all():
         saved_data["max_level"] = 60
+        [i.remove() for i in popups]
+        popups.append(
+            MiniPopup(subtext="Все уровни теперь доступны",
+                        buttons=[Button(text="OK", size=get_proportion(150, 70))])
+        )
         save_data()
 
     def reset_data():
         global saved_data
-        saved_data = {"rotation_inversion": False, "max_level": 1, "muted": True, "tutorial": True}
+        saved_data = {"rotation_inversion": False, "max_level": 1, "tutorial": True, "volume": 1}
+        global_volume.set(1)
+        volume_slider.set_slider_pos_to_value()
+        [i.remove() for i in popups]
+        popups.append(
+            MiniPopup(subtext="Информация об игре\n и настройки сброшены",
+                      buttons=[Button(text="OK", size=get_proportion(150, 70))])
+        )
         save_data()
 
         for i in range(1, levels_exist + 1):
@@ -190,7 +232,7 @@ def show_menu():
                 json.dump(saved, f)
 
     exit_button = Button(command=close_app, position=(screen_w - 50, screen_h - 50),
-                         size=(50, 50),
+                         size=get_proportion(50, 50, square="h"),
                          color=(255, 0, 0), text="X")
     play_button = Button(size=get_proportion(450, 150),
                          position=(screen_w / 2 - 175 * get_proportion()[0], 170 * get_proportion()[1]),
@@ -203,17 +245,14 @@ def show_menu():
                            text_align="сenter",
                            command=set_page, command_args=[2], get_answ=1)
     info_button = Button(size=get_proportion(450, 150),
-                         position=(screen_w / 2 - 175 * get_proportion()[0], 570 * get_proportion()[1]), text="Инфо",
+                         position=get_proportion(screen_w / 2 - 175, 570), text="Инфо",
                          text_align="сenter", command=set_page, command_args=[4])
     back_button = Button(size=get_proportion(50, 50, square="h"), position=(0, 0), text="<-", command=set_page,
                          command_args=[1])
 
-    mute_button = Button(size=get_proportion(150, 150, square="h"),
-                         position=(info_button.rect.left, 770 * get_proportion()[1]), text="M",
-                         bool_state=saved_data["muted"])
-    settings_button = Button(size=get_proportion(150, 150, square="h"),
-                             position=(info_button.rect.right - 150 * get_proportion()[0], get_proportion()[1] * 770),
-                             text="S", command=set_page, command_args=[3])
+    settings_button = Button(size=get_proportion(450, 150),
+                             position=get_proportion(screen_w / 2 - 175, 770),
+                             text="Настройки", command=set_page, command_args=[3])
 
     level_buttons = LevelButtonsGroup()
     button_next = Button(command=level_buttons.next, position=(screen_w - get_proportion(w=100)[0], screen_h // 2),
@@ -230,11 +269,11 @@ def show_menu():
     curent_page = 1
     prev_page = curent_page
     curent_levels_page = 1
-    l1 = [play_button, levels_button, info_button, mute_button, settings_button]
+    l1 = [play_button, levels_button, info_button, settings_button]
     l2 = [level_buttons, button_prev, button_next]
     l2[0].draw()
-    l3 = [unlock_all_button, reset_button]
-    l4 = [Button(text="123")]
+    l3 = [unlock_all_button, reset_button, volume_slider]
+    l4 = [Button(text="123", size=(100, 100), position=screen.get_rect().center)]
 
     while True:
         screen.fill((128, 128, 128))
@@ -255,11 +294,10 @@ def show_menu():
                             play_button.update()
                             resp = levels_button.update()
                             info_button.update()
-                            mute_button.update()
                             settings_button.update()
                             button_next.update()
                             button_prev.update()
-                            back_button.update()
+                            back_button.update() if curent_page != 1 else None
                             if resp == 1:
                                 clicked = False
                 if event.type == pygame.KEYDOWN:
@@ -284,12 +322,12 @@ def show_menu():
                 [i.hide() for i in l2]
             if curent_page == 3:
                 [i.show() for i in l3]
-                [i.update() for i in l3 if clicked]
+                [i.update(clicked) for i in l3]
             else:
                 [i.hide() for i in l3]
             if curent_page == 4:
                 [i.show() for i in l4]
-                [i.update() for i in l4]
+                [i.update(clicked) for i in l4]
             else:
                 [i.hide() for i in l4]
             l2[curent_levels_page - 1].update(clicked if curent_page == prev_page else False)
@@ -303,6 +341,8 @@ def show_menu():
             [i.draw() for i in l2]
         elif curent_page == 3:
             [i.draw() for i in l3]
+        elif curent_page == 4:
+            [i.draw() for i in l4]
 
         if curent_page != 1:
             back_button.draw()
@@ -313,20 +353,18 @@ def show_menu():
         fpsClock.tick(fps)
 
 
-# start_level(1)
-
-
 def start_level(level=1):
     global saved_data
+
+    read_data()
     with open(f"{Path.cwd()}/levels/level_{level}.json", "r") as f:
         json_data = json.load(f)
-    if level > saved_data["max_level"]:
-        saved_data["max_level"] = level
 
     popups.clear()
 
     if saved_data["tutorial"]:
         saved_data["tutorial"] = False
+        save_data()
         get_tutorial_step(1)
 
     def check_solved():
@@ -354,7 +392,8 @@ def start_level(level=1):
                 json_data["time"] = min(t if start_time != -1 else 999.999, json_data["time"])
                 json.dump(json_data, f)
             if not cheated:
-                saved_data["max_level"] = level + 1
+                saved_data["max_level"] = max(level + 1, saved_data["max_level"])
+                save_data()
             raise FunctionExit
         else:
             if not path_rects:
@@ -391,10 +430,11 @@ def start_level(level=1):
 
     submit_button = Button(command=check_solved, position=get_proportion(w=1600, h=450),
                            size=[100 * get_proportion()[0]] * 2)
-    exit_button = Button(command=close_app, position=(screen_w - 50 * get_proportion()[0], 0),
-                         size=[50 * get_proportion()[0]] * 2,
+    exit_button = Button(command=close_app, position=(screen_w - 50, screen_h - 50),
+                         size=get_proportion(50, 50, square="h"),
                          color=(255, 0, 0), text="X")
-    menu_button = Button(command=end_gameloop, position=(0, 0), size=get_proportion(50, 50), text="<")
+    menu_button = Button(command=end_gameloop, position=(0, 0), size=get_proportion(50, 50, square="h"), text="<")
+
     hint_button = Button(position=get_proportion(w=0, h=450), size=get_proportion(100, 100), command=summon_hint_menu)
 
     while game_loop:
@@ -444,7 +484,7 @@ def start_level(level=1):
                         Button(text="M", command=end_gameloop, command_args=[]),
                         Button(text="N", command=start_level, command_args=[level + 1]) if level < 60 else None,
                         Button(text="R", command=start_level, command_args=[level])]
-                           , destroy_on_click=True))
+                          , destroy_on_click=True))
                 flag2 = True
         update_popups(clicked)
         if popups:
@@ -492,6 +532,7 @@ def get_board_position(x, y):
 
 
 def save_data():
+    saved_data["volume"] = global_volume.get()
     with open(f"{Path.cwd()}/data.json", "w") as f:
         json.dump(saved_data, f)
 
@@ -902,12 +943,13 @@ class MiniPopup(Popup):
 
         super().__init__(*args, **kwargs)
         self.main_rect.top = 0
-        self.main_rect.left = width
+        self.main_rect.left = screen_w
         self.speed = (15, 15)
         self.ease_duration = 0.5 * 60
         self.ease_generator_x = QuadEaseInOut(start=screen_w + self.main_rect.width,
                                               end=screen_w - self.main_rect.width,
                                               duration=self.ease_duration)
+        self.update_buttons()
 
     def update(self, clicked=False):
         if self.main_rect.left > width - self.main_rect.width and not self.remove_self:
@@ -1108,6 +1150,7 @@ class Hints:
 
 
 read_data()
+global_volume.set(saved_data["volume"])
 
 popups = []  # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
 grid = []

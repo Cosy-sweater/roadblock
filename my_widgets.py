@@ -1,5 +1,6 @@
-# my widgets v1.0
+# my widgets v1.1
 import pygame
+import builtins
 
 pygame.init()
 pygame.font.init()
@@ -25,7 +26,8 @@ def get_proportion(w: float = 1, h: float = 1, square: str = None):
 
 
 class Button:
-    def __init__(self, position: tuple = (0, 0), size=(100, 100), get_ansf=False, locked=False, **kwargs):
+    def __init__(self, position: tuple = (0, 0), size=(100, 100), get_ansf=False, locked=False, click_sound=None,
+                 **kwargs):
         self.kwargs = kwargs.copy()
         self.is_hidden = False
         self.rect = pygame.Rect(position, size)
@@ -37,6 +39,12 @@ class Button:
         self.is_locked = locked
         self.mouse_hover = False
         self.image_size = 0
+        if click_sound:
+            self.click_sound = click_sound[0]
+        elif hasattr(builtins, "click_sound"):
+            self.click_sound = builtins.click_sound[0]
+        else:
+            self.click_sound = None
         if not self.rect_color:
             self.rect_color = (100, 255, 0)
 
@@ -50,9 +58,14 @@ class Button:
             if not clicked:
                 self.mouse_hover = True
             else:
+                if self.click_sound:
+                    self.click_sound.play()
                 if self.kwargs.get("command"):
                     if self.kwargs.get("command_args"):
-                        resp = self.kwargs["command"](*self.kwargs.get("command_args"))
+                        if self.kwargs.get("command_args") == "bool":
+                            resp = self.kwargs["command"](self.bool_state)
+                        else:
+                            resp = self.kwargs["command"](*self.kwargs.get("command_args"))
                     else:
                         resp = self.kwargs["command"]()
                     if self.get_ansf:
@@ -99,3 +112,89 @@ class Button:
 
     def switch_lock(self):
         self.is_locked = not self.is_locked
+
+
+class Slider:
+    def set_slider_pos_to_value(self):
+        self.slider_rect.centerx = self.slider_base.left + self.slider_base.width / \
+                                   (self.value_range[1] - self.value_range[0]) * self.value
+
+    def __init__(self, position: tuple = (0, 0), size=(450, 150), variable=None, value_range: tuple = (0, 1),
+                 click_sound=None, title: str = "", value=0):
+        self.value = value
+        self.value_range = value_range
+        self.variable = variable
+
+        if type(variable) is not list:
+            raise ValueError("Variable argument must be a list with one element containing a variable\nThis is used "
+                             "to create a pointer")
+        if len(variable) != 1:
+            raise ValueError("Variable argument must be a list with one element containing a variable\nThis is used "
+                             "to create a pointer")
+
+        self.rect = pygame.Rect(position, size)
+        self.slider_base = pygame.Rect((0, 0), (size[0] - 50, get_proportion(h=25)[1]))
+        self.slider_base.centerx = self.rect.centerx
+        self.slider_base.top = self.rect.centery + get_proportion(h=10)[1]
+        self.slider_rect = pygame.Rect((0, 0), get_proportion(40, 40, square="h"))
+        self.slider_rect.centery = self.slider_base.centery
+        self.set_slider_pos_to_value()
+
+        self.title = title
+        self.mouse_hover = False
+        self.image_size = 0
+        self.is_hidden = False
+
+        self.is_held = False
+
+        if click_sound:
+            self.click_sound = click_sound[0]
+        elif hasattr(builtins, "click_sound"):
+            self.click_sound = builtins.click_sound[0]
+        else:
+            self.click_sound = None
+
+        if self.title:
+            self.title = font1.render(self.title, False, (0, 0, 0))
+
+    def update(self, clicked=False):
+        if self.is_hidden:
+            return
+
+        if clicked and self.slider_rect.collidepoint(pygame.mouse.get_pos()):
+            self.is_held = True
+        else:
+            if not pygame.mouse.get_pressed()[0]:
+                if self.is_held:
+                    if self.click_sound:
+                        self.click_sound.play()
+                self.is_held = False
+
+        if self.is_held:
+            self.slider_rect.centerx = pygame.mouse.get_pos()[0]
+        self.slider_rect.centerx = max(self.slider_rect.centerx, self.slider_base.left)
+        self.slider_rect.centerx = min(self.slider_rect.centerx, self.slider_base.right)
+
+        self.variable[0].set(self.get_value())
+
+    def draw(self):
+        if self.is_hidden:
+            return
+        pygame.draw.rect(screen, (50, 255, 50), self.rect)
+        pygame.draw.rect(screen, (150, 255, 150), self.slider_base)
+        pygame.draw.rect(screen, (250, 255, 250), self.slider_rect)
+        pos = self.title.get_rect()
+        pos.centerx = self.rect.centerx
+        pos.top = self.rect.top + 15
+        screen.blit(self.title, pos)
+
+    def hide(self):
+        self.is_hidden = True
+
+    def show(self):
+        self.is_hidden = False
+
+    def get_value(self):
+        return round(max(self.slider_rect.centerx - self.slider_base.left, 0.001) /
+                     self.slider_base.width *
+                     (self.value_range[1] - self.value_range[0]) + self.value_range[0], 3)
