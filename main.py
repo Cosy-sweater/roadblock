@@ -5,7 +5,6 @@ import sys
 import json
 import time
 from pathlib import Path
-import warnings
 
 import level_solver
 
@@ -23,14 +22,18 @@ pygame.font.init()
 fps = 60
 fpsClock = pygame.time.Clock()
 
+saved_data = {}
 width, height = 1920, 1080
-screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)  # , pygame.FULLSCREEN)
+# screen = pygame.display.set_mode((600, 400))
+screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+builtins.screen_resolution = (screen.get_width(), screen.get_height())
 
 font1 = pygame.font.SysFont('Comic Sans MS', int(30 * screen.get_width() / width))
 font2 = pygame.font.SysFont('Comic Sans MS', int(24 * screen.get_width() / width))
 font3 = pygame.font.SysFont('Comic Sans MS', int(28 * screen.get_width() / width))
 
-class Volume(object):
+
+class Volume:
     def __init__(self, a):
         self.volume = a
         self.old_volume = a
@@ -44,11 +47,11 @@ class Volume(object):
     def get(self):
         return self.volume
 
+
 global_volume = Volume(1)
 
-
 sound_list = []
-click_sound = [pygame.mixer.Sound(f"{Path.cwd()}/sounds/click_sound.mp3")] # is pointer for using global volume
+click_sound = [pygame.mixer.Sound(f"{Path.cwd()}/sounds/click_sound.mp3")]  # is pointer for using global volume
 builtins.click_sound = click_sound
 
 sound_list.append(click_sound)
@@ -69,7 +72,6 @@ car_places = [2, -1, 1, 1, -1, 0]
 next_sides_c = ["left", "top", "right", "bottom"]
 next_sides_e = ["topleft", "topright", "bottomright", "bottomleft"]
 screen_w, screen_h = screen.get_size()
-TILE_SIZE = 150 * round(screen_h / height, 1)
 
 
 def close_app():
@@ -86,16 +88,25 @@ def draw_popups():
     [i.draw() for i in popups]
 
 
-def get_proportion(w: float = 1, h: float = 1, square: str = None):
+def get_proportion(w: float = 1, h: float = 1, square: str = None, g_pow: float = 1, l_h_pow: float = 1,
+                   l_w_pow: float = 0):
     if not square:
-        return w * round(screen_w / width, 1), h * round(screen_h / height, 1)
+        return w * round(screen_w / width, 1) ** max(g_pow, l_w_pow), \
+               h * round(screen_h / height, 1) ** max(g_pow, l_h_pow)
     else:
         if square.lower() == "h":
-            return h * round(screen_h / height, 1), h * round(screen_h / height, 1)
+            return h * round(screen_h / height, 1) ** max(g_pow, l_w_pow), \
+                   h * round(screen_h / height, 1) ** max(g_pow, l_h_pow)
         elif square.lower() == "w":
-            return w * round(screen_w / width, 1), w * round(screen_w / width, 1)
+            return w * round(screen_w / width, 1) ** max(g_pow, l_w_pow), \
+                   w * round(screen_w / width, 1) ** max(g_pow, l_h_pow)
         else:
             raise ValueError("Argument takes 'w' and 'h' values only")
+
+
+TILE_SIZE = int(get_proportion(h=150, g_pow=1.2)[1])
+w_pow, h_pow = 1.2, 1.2
+
 
 def set_volume(value):
     for i in sound_list:
@@ -117,7 +128,8 @@ def get_tutorial_step(n: int):
 сдвиньте мышь в нижнюю часть экрана''', buttons=[button_next], destroy_on_event=lambda *_: car_surf.is_expended,
                   do_on_destroy=f'get_tutorial_step({n + 1})'),
 
-        Popup(title="Полицейские машины", subtext='''Чтобы поставить полицейскую машинну на поле, нужно навести на неё мышь
+        Popup(title="Полицейские машины",
+              subtext='''Чтобы поставить полицейскую машинну на поле, нужно навести на неё мышь
 и перетянуть её в нужную часть поля
         
 Чтобы вращать машину, нужно вращать ролик мыши''',
@@ -154,7 +166,7 @@ mini_surf = pygame.Surface(get_proportion(w=500, h=300))
 mini_surf.fill((44, 44, 44))
 
 lock_image = pygame.image.load(f'{Path.cwd()}/img/lock.png').convert_alpha()
-lock_image = pygame.transform.scale(lock_image, get_proportion(150, 150))
+lock_image = pygame.transform.scale(lock_image, get_proportion(150, 150, square="w"))
 
 
 def rotate(data, step=1):
@@ -173,13 +185,12 @@ def rotate(data, step=1):
 
 
 def summon_hint_menu():
-    global hints
     popups.append(Popup(
         title="Меню подсказок",
         subtext="",
         buttons=[
-            Button(text="1", size=(450, 450), command=hints.get_hint),
-            Button(text="2", size=(450, 450), command=hints.solve)
+            Button(text="1", size=get_proportion(450, 450, square="h"), command=hints.get_hint),
+            Button(text="2", size=get_proportion(450, 450, square="h"), command=hints.solve)
         ],
         big_buttons=True,
         destroy_on_click=True
@@ -195,12 +206,18 @@ def get_time_of_levels():
     return time_list
 
 
-volume_slider = Slider(title="Громкость", value=1, variable=[global_volume], position=(screen_w / 2 - 175 * get_proportion()[0], 700 * get_proportion()[1]))
+volume_slider = Slider(title="Громкость", value=1, variable=[global_volume],
+                       position=get_proportion(width / 2 - 175, 700, l_h_pow=h_pow),
+                       show_percent=True, size=get_proportion(450, 150))
+
+
 def show_menu():
     global curent_page, prev_page, volume
 
     def set_page(n):
         global curent_page, prev_page
+        nonlocal clicked
+        clicked = False
         curent_page, prev_page = n, curent_page
 
     def unlock_all():
@@ -208,7 +225,7 @@ def show_menu():
         [i.remove() for i in popups]
         popups.append(
             MiniPopup(subtext="Все уровни теперь доступны",
-                        buttons=[Button(text="OK", size=get_proportion(150, 70))])
+                      buttons=[Button(text="OK", size=get_proportion(150, 70))])
         )
         save_data()
 
@@ -231,39 +248,41 @@ def show_menu():
             with open(f'{Path.cwd()}/levels/level_{i}.json', "w") as f:
                 json.dump(saved, f)
 
-    exit_button = Button(command=close_app, position=(screen_w - 50, screen_h - 50),
+    exit_button = Button(command=close_app,
+                         position=(screen_w - get_proportion(h=50)[1], screen_h - get_proportion(h=50)[1]),
                          size=get_proportion(50, 50, square="h"),
                          color=(255, 0, 0), text="X")
     play_button = Button(size=get_proportion(450, 150),
-                         position=(screen_w / 2 - 175 * get_proportion()[0], 170 * get_proportion()[1]),
+                         position=get_proportion(width / 2 - 175, 170, l_h_pow=h_pow),
                          text="Продолжить",
                          text_align="center",
                          command=start_level, command_args=[saved_data["max_level"]])
     levels_button = Button(size=get_proportion(450, 150),
-                           position=(screen_w / 2 - 175 * get_proportion()[0], 370 * get_proportion()[1]),
+                           position=get_proportion(width / 2 - 175, 370, l_h_pow=h_pow),
                            text="Уровни",
                            text_align="сenter",
                            command=set_page, command_args=[2], get_answ=1)
     info_button = Button(size=get_proportion(450, 150),
-                         position=get_proportion(screen_w / 2 - 175, 570), text="Инфо",
+                         position=get_proportion(width / 2 - 175, 570, l_h_pow=h_pow), text="Инфо",
                          text_align="сenter", command=set_page, command_args=[4])
     back_button = Button(size=get_proportion(50, 50, square="h"), position=(0, 0), text="<-", command=set_page,
                          command_args=[1])
 
     settings_button = Button(size=get_proportion(450, 150),
-                             position=get_proportion(screen_w / 2 - 175, 770),
+                             position=get_proportion(width / 2 - 175, 770, l_h_pow=h_pow),
                              text="Настройки", command=set_page, command_args=[3])
 
     level_buttons = LevelButtonsGroup()
-    button_next = Button(command=level_buttons.next, position=(screen_w - get_proportion(w=100)[0], screen_h // 2),
-                         text=">")
-    button_prev = Button(command=level_buttons.prev, position=(0, screen_h // 2), text="<")
+    button_next = Button(command=level_buttons.next, size=get_proportion(100, 100, square="w"),
+                         position=(screen_w - get_proportion(w=100)[0], screen_h // 2), text=">")
+    button_prev = Button(command=level_buttons.prev, size=get_proportion(100, 100, square="w"),
+                         position=(0, screen_h // 2), text="<")
 
     unlock_all_button = Button(size=get_proportion(450, 150),
-                               position=(screen_w / 2 - 175 * get_proportion()[0], 300 * get_proportion()[1]),
+                               position=get_proportion(width / 2 - 175, 300, l_h_pow=h_pow),
                                text="Открыть все уровни", command=unlock_all, )
     reset_button = Button(size=get_proportion(450, 150),
-                          position=(screen_w / 2 - 175 * get_proportion()[0], 500 * get_proportion()[1]),
+                          position=get_proportion(width / 2 - 175, 500, l_h_pow=h_pow),
                           text="Сброс", command=reset_data, )
 
     curent_page = 1
@@ -284,7 +303,8 @@ def show_menu():
 
         try:
             for event in pygame.event.get():
-                if event.type == QUIT or (event.type == KEYDOWN and event.key == K_F4 and (key[K_LALT] or key[K_LALT])):
+                if event.type == QUIT or (
+                        event.type == KEYDOWN and event.key == K_F4 and (event.key[K_LALT] or event.key[K_LALT])):
                     close_app()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
@@ -428,14 +448,15 @@ def start_level(level=1):
     for num, key in enumerate(cars):
         car_list.append(Car(cars[f'car{num + 1}'], num + 1, car_places[num]))
 
-    submit_button = Button(command=check_solved, position=get_proportion(w=1600, h=450),
-                           size=[100 * get_proportion()[0]] * 2)
-    exit_button = Button(command=close_app, position=(screen_w - 50, screen_h - 50),
+    submit_button = Button(command=check_solved, position=get_proportion(w=1800, h=450),
+                           size=get_proportion(100, 100, square="h"))
+    exit_button = Button(command=close_app,
+                         position=(screen_w - get_proportion(h=50)[1], screen_h - get_proportion(h=50)[1]),
                          size=get_proportion(50, 50, square="h"),
                          color=(255, 0, 0), text="X")
     menu_button = Button(command=end_gameloop, position=(0, 0), size=get_proportion(50, 50, square="h"), text="<")
 
-    hint_button = Button(position=get_proportion(w=0, h=450), size=get_proportion(100, 100), command=summon_hint_menu)
+    hint_button = Button(position=get_proportion(w=0, h=450), size=get_proportion(100, 100, square="h"), command=summon_hint_menu)
 
     while game_loop:
         curent_tiles = ocupied_tiles.copy()
@@ -457,7 +478,10 @@ def start_level(level=1):
         # Update.
         car_surf.update()
         for car in car_list:
+            old = car.is_placed
             car_tiles = car.update()
+            if car_surf.car_surf_rect.collidepoint(pygame.mouse.get_pos()) and car.is_placed and not old:
+                car.move_to_board()
             if car_tiles is None:
                 return car
             flag = False
@@ -474,6 +498,8 @@ def start_level(level=1):
 
         menu_button.update(clicked)
         exit_button.update(clicked)
+        if car_surf.car_surf_rect.collidepoint(pygame.mouse.get_pos()):
+            clicked = False
         if not popups:
             hint_button.update(clicked)
             try:
@@ -483,8 +509,7 @@ def start_level(level=1):
                     Popup(title="TeSt", buttons=[
                         Button(text="M", command=end_gameloop, command_args=[]),
                         Button(text="N", command=start_level, command_args=[level + 1]) if level < 60 else None,
-                        Button(text="R", command=start_level, command_args=[level])]
-                          , destroy_on_click=True))
+                        Button(text="R", command=start_level, command_args=[level])], destroy_on_click=True))
                 flag2 = True
         update_popups(clicked)
         if popups:
@@ -573,8 +598,9 @@ class CarSurface:
         self.surf = pygame.Surface((self.car_surf_rect.width, self.car_surf_rect.height))
         self.surf.fill((255, 255, 255))
 
-        self.cars_poss = [[200, 100], [200, 500], [600, 320], [1000, 260], [1600, 100], [1400, 500]]
-        self.cars_poss = [[i[0] * (screen_w / width), i[1] * (screen_h / height)] for i in self.cars_poss]
+        self.cars_poss = [get_proportion(200, 100), get_proportion(200, 500), get_proportion(600, 320),
+                          get_proportion(1000, 260), get_proportion(1600, 100), get_proportion(1400, 500)]
+        self.cars_poss = list(map(list, self.cars_poss))
         self.move_limit = screen_h // 3
         self.bottom_border = 90 * (screen_h / height)
 
@@ -583,7 +609,7 @@ class CarSurface:
     def update(self):
         if self.car_surf_rect.collidepoint(pygame.mouse.get_pos()):
             if self.car_surf_rect.top > self.move_limit:
-                self.car_surf_rect.top -= 80
+                self.car_surf_rect.top -= get_proportion(h=80)[1]
             if self.car_surf_rect.top < self.move_limit:
                 self.car_surf_rect.top = self.move_limit
             self.is_expended = True
@@ -772,9 +798,11 @@ class FunctionExit(Exception):
 
 
 class Popup:
-    def __init__(self, surf=default_surf, title: str = "", subtext="", buttons=[], big_buttons=False,
+    def __init__(self, surf=default_surf, title: str = "", subtext="", buttons=None, big_buttons=False,
                  destroy_on_click=False,
                  destroy_on_event=lambda *_: False, do_on_destroy="pass", show_close_button=True):
+        if buttons is None:
+            buttons = []
         self.title, self.subtext = title, subtext
         self.text_title = title
         self.surf = surf
@@ -811,7 +839,7 @@ class Popup:
             self.subtext = [font2.render(i, False, (0, 0, 0)) for i in self.subtext]
 
         self.remove_self = False
-        self.close_button = Button(text="<", size=(50, 50), position=(-200, -200), command=self.remove)
+        self.close_button = Button(text="<", size=get_proportion(50, 50, square="h"), position=(-200, -200), command=self.remove)
         self.show_close_button = show_close_button
 
     def update(self, clicked=False):
@@ -823,10 +851,12 @@ class Popup:
             return
         [i.update(clicked) for i in self.buttons]
         if clicked:
-            if self.destroy_on_click and (any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in
-                                               self.buttons]) or self.close_button.rect.collidepoint(
-                pygame.mouse.get_pos())):
-                self.remove()
+            if self.destroy_on_click:
+                if any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in self.buttons]):
+                    self.remove()
+                if self.close_button.rect.collidepoint(pygame.mouse.get_pos()):
+                    click_sound[0].play()
+                    self.remove()
 
         if self.destroy_on_event():
             exec(self.on_destroy_action)
@@ -961,8 +991,8 @@ class MiniPopup(Popup):
         if clicked:
             [i.update() for i in self.buttons]
             if self.destroy_on_click and (any([i.rect.collidepoint(pygame.mouse.get_pos()) for i in
-                                               self.buttons]) or self.close_button.rect.collidepoint(
-                pygame.mouse.get_pos())):
+                                               self.buttons]) or
+                                          self.close_button.rect.collidepoint(pygame.mouse.get_pos())):
                 self.remove()
 
         if self.destroy_on_event():
@@ -1152,11 +1182,11 @@ class Hints:
 read_data()
 global_volume.set(saved_data["volume"])
 
-popups = []  # [Popup(title="TeSt", text="123", buttons=[Button(size=(450, 450), command=lambda *a: [i.remove() for i in popups]) for i in range(2)], big_buttons=True)]
+popups = []
 grid = []
 board = pygame.Rect((0, 0), (6 * TILE_SIZE, 6 * TILE_SIZE))
 ground_pos = list(screen.get_rect().center)
-ground_pos[1] -= 50
+ground_pos[1] -= get_proportion(h=50)[1]
 board.center = ground_pos
 for x in range(6):
     for y in range(6):

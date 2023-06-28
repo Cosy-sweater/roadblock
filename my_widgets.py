@@ -5,7 +5,10 @@ import builtins
 pygame.init()
 pygame.font.init()
 
-screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+if hasattr(builtins, "screen_resolution"):
+    screen = pygame.display.set_mode(builtins.screen_resolution)
+else:
+    screen = pygame.display.set_mode((0, 0))
 
 width, height = 1920, 1080
 font1 = pygame.font.SysFont('Comic Sans MS', int(30 * screen.get_width() / width))
@@ -120,7 +123,7 @@ class Slider:
                                    (self.value_range[1] - self.value_range[0]) * self.value
 
     def __init__(self, position: tuple = (0, 0), size=(450, 150), variable=None, value_range: tuple = (0, 1),
-                 click_sound=None, title: str = "", value=0):
+                 click_sound=None, title: str = "", value=0, show_percent=False):
         self.value = value
         self.value_range = value_range
         self.variable = variable
@@ -132,8 +135,11 @@ class Slider:
             raise ValueError("Variable argument must be a list with one element containing a variable\nThis is used "
                              "to create a pointer")
 
+        self.show_precent = show_percent
         self.rect = pygame.Rect(position, size)
-        self.slider_base = pygame.Rect((0, 0), (size[0] - 50, get_proportion(h=25)[1]))
+        if self.show_precent:
+            self.rect.height += get_proportion(h=50)[1]
+        self.slider_base = pygame.Rect((0, 0), (size[0] - get_proportion(w=50)[0], get_proportion(h=25)[1]))
         self.slider_base.centerx = self.rect.centerx
         self.slider_base.top = self.rect.centery + get_proportion(h=10)[1]
         self.slider_rect = pygame.Rect((0, 0), get_proportion(40, 40, square="h"))
@@ -187,6 +193,13 @@ class Slider:
         pos.centerx = self.rect.centerx
         pos.top = self.rect.top + 15
         screen.blit(self.title, pos)
+        if self.show_precent:
+            t = str(int(self.get_value() / self.value_range[1] * 100))
+            t = font2.render(t, False, (0, 0, 0))
+            t2 = t.get_rect()
+            t2.bottom = self.rect.bottom - get_proportion(h=15)[1]
+            t2.centerx = self.rect.centerx
+            screen.blit(t, t2)
 
     def hide(self):
         self.is_hidden = True
@@ -195,6 +208,6 @@ class Slider:
         self.is_hidden = False
 
     def get_value(self):
-        return round(max(self.slider_rect.centerx - self.slider_base.left, 0.001) /
+        return round(max(float(self.slider_rect.centerx - self.slider_base.left), 0.001) /
                      self.slider_base.width *
                      (self.value_range[1] - self.value_range[0]) + self.value_range[0], 3)
