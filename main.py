@@ -60,7 +60,7 @@ def read_data():
         saved_data = json.load(f)
 
 
-global_volume = Volume(1)
+global_volume = Volume(1.0)
 
 sound_list = []
 click_sound = [pygame.mixer.Sound(f"{Path.cwd()}/sounds/click_sound.mp3")]  # is pointer for using global volume
