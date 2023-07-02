@@ -1,6 +1,9 @@
-# my widgets v1.1
+# my widgets v1.2
+import traceback
+
 import pygame
 import builtins
+import sys
 
 pygame.init()
 pygame.font.init()
@@ -16,14 +19,18 @@ font2 = pygame.font.SysFont('Comic Sans MS', int(24 * screen.get_width() / width
 screen_w, screen_h = screen.get_size()
 
 
-def get_proportion(w: float = 1, h: float = 1, square: str = None):
+def get_proportion(w: float = 1, h: float = 1, square: str = None, g_pow: float = 1, l_h_pow: float = 1,
+                   l_w_pow: float = 0):
     if not square:
-        return w * round(screen_w / width, 1), h * round(screen_h / height, 1)
+        return w * round(screen_w / width, 1) ** max(g_pow, l_w_pow), \
+               h * round(screen_h / height, 1) ** max(g_pow, l_h_pow)
     else:
         if square.lower() == "h":
-            return h * round(screen_h / height, 1), h * round(screen_h / height, 1)
+            return h * round(screen_h / height, 1) ** max(g_pow, l_w_pow), \
+                   h * round(screen_h / height, 1) ** max(g_pow, l_h_pow)
         elif square.lower() == "w":
-            return w * round(screen_w / width, 1), w * round(screen_w / width, 1)
+            return w * round(screen_w / width, 1) ** max(g_pow, l_w_pow), \
+                   w * round(screen_w / width, 1) ** max(g_pow, l_h_pow)
         else:
             raise ValueError("Argument takes 'w' and 'h' values only")
 
@@ -118,13 +125,9 @@ class Button:
 
 
 class Slider:
-    def set_slider_pos_to_value(self):
-        self.slider_rect.centerx = self.slider_base.left + self.slider_base.width / \
-                                   (self.value_range[1] - self.value_range[0]) * self.value
-
     def __init__(self, position: tuple = (0, 0), size=(450, 150), variable=None, value_range: tuple = (0, 1),
                  click_sound=None, title: str = "", value=0, show_percent=False):
-        self.value = value
+        self._value = value
         self.value_range = value_range
         self.variable = variable
 
@@ -135,16 +138,23 @@ class Slider:
             raise ValueError("Variable argument must be a list with one element containing a variable\nThis is used "
                              "to create a pointer")
 
+        if click_sound:
+            self.click_sound = click_sound[0]
+        elif hasattr(builtins, "click_sound"):
+            self.click_sound = builtins.click_sound[0]
+        else:
+            self.click_sound = None
+
         self.show_precent = show_percent
         self.rect = pygame.Rect(position, size)
         if self.show_precent:
             self.rect.height += get_proportion(h=50)[1]
-        self.slider_base = pygame.Rect((0, 0), (size[0] - get_proportion(w=50)[0], get_proportion(h=25)[1]))
-        self.slider_base.centerx = self.rect.centerx
-        self.slider_base.top = self.rect.centery + get_proportion(h=10)[1]
-        self.slider_rect = pygame.Rect((0, 0), get_proportion(40, 40, square="h"))
-        self.slider_rect.centery = self.slider_base.centery
-        self.set_slider_pos_to_value()
+        self.scrollbar = Scrollbar(direction="h", click_sound=self.click_sound,
+                                   value_range=self.value_range, value=value,
+                                   size=(size[0] - get_proportion(w=50)[0], get_proportion(h=25)[1]),
+                                   pos=(self.rect.left + get_proportion(w=25)[0],
+                                        self.rect.centery + get_proportion(h=10)[1]))
+        self.scrollbar.set_slider_pos_to_value()
 
         self.title = title
         self.mouse_hover = False
@@ -153,42 +163,35 @@ class Slider:
 
         self.is_held = False
 
-        if click_sound:
-            self.click_sound = click_sound[0]
-        elif hasattr(builtins, "click_sound"):
-            self.click_sound = builtins.click_sound[0]
-        else:
-            self.click_sound = None
-
         if self.title:
             self.title = font1.render(self.title, False, (0, 0, 0))
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        self._value = value
+        self.scrollbar.value = value
+        self.scrollbar.set_slider_pos_to_value()
 
     def update(self, clicked=False):
         if self.is_hidden:
             return
 
-        if clicked and self.slider_rect.collidepoint(pygame.mouse.get_pos()):
-            self.is_held = True
+        self.scrollbar.update(clicked)
+
+        if hasattr(self.variable[0], "set"):
+            self.variable[0].set(self.get_value())
         else:
-            if not pygame.mouse.get_pressed()[0]:
-                if self.is_held:
-                    if self.click_sound:
-                        self.click_sound.play()
-                self.is_held = False
-
-        if self.is_held:
-            self.slider_rect.centerx = pygame.mouse.get_pos()[0]
-        self.slider_rect.centerx = max(self.slider_rect.centerx, self.slider_base.left)
-        self.slider_rect.centerx = min(self.slider_rect.centerx, self.slider_base.right)
-
-        self.variable[0].set(self.get_value())
+            self.variable[0] = self.get_value()
 
     def draw(self):
         if self.is_hidden:
             return
         pygame.draw.rect(screen, (50, 255, 50), self.rect)
-        pygame.draw.rect(screen, (150, 255, 150), self.slider_base)
-        pygame.draw.rect(screen, (250, 255, 250), self.slider_rect)
+        self.scrollbar.draw()
         pos = self.title.get_rect()
         pos.centerx = self.rect.centerx
         pos.top = self.rect.top + 15
@@ -208,6 +211,167 @@ class Slider:
         self.is_hidden = False
 
     def get_value(self):
-        return round(max(float(self.slider_rect.centerx - self.slider_base.left), 0.001) /
-                     self.slider_base.width *
+        return self.scrollbar.get_value()
+
+    def set_slider_pos_to_value(self):
+        self.scrollbar.set_slider_pos_to_value()
+
+
+class Scrollbar:
+    def horizontal_set_slider_pos_to_value(self):
+        self.slider_rect.left = self.slider_base.left + (self.slider_base.width - self.slider_rect.width) / \
+                                   (self.value_range[1] - self.value_range[0]) * self.value
+
+    def vertical_set_slider_pos_to_value(self):
+        self.slider_rect.top = self.slider_base.top + (self.slider_base.height - self.slider_rect.height) / \
+                                   (self.value_range[1] - self.value_range[0]) * self.value
+
+    def horizontal_get_value(self):
+        return round(max(float(self.slider_rect.left - self.slider_base.left), 0.001) /
+                     (self.slider_base.width - self.slider_rect.width) *
                      (self.value_range[1] - self.value_range[0]) + self.value_range[0], 3)
+
+    def vertical_get_value(self):
+        return round(max(float(self.slider_rect.top - self.slider_base.top), 0.001) /
+                     (self.slider_base.height - self.slider_rect.height) *
+                     (self.value_range[1] - self.value_range[0]) + self.value_range[0], 3)
+
+    def __init__(self, variable=[0], value_range: tuple = (0, 1),
+                 click_sound=None, value=0, direction: str = "v", size: tuple = None, pos: tuple = None):
+        if click_sound is None:
+            click_sound = []
+        self.value = value
+        self.value_range = value_range
+        self.variable = variable
+
+        self.slider_base = pygame.Rect((0, 0), get_proportion(25, 25))
+        if size:
+            self.slider_base.width, self.slider_base.height = size
+        if pos:
+            self.slider_base.topleft = pos
+
+        self.slider_rect = pygame.Rect((0, 0), get_proportion(40, 40))
+        self.slider_rect.centery = self.slider_base.centery
+
+        if type(variable) is not list:
+            raise ValueError("Variable argument must be a list with one element containing a variable\nThis is used "
+                             "to create a pointer")
+        elif len(variable) != 1:
+            raise ValueError("Variable argument must be a list with one element containing a variable\nThis is used "
+                             "to create a pointer")
+
+        if direction.lower() == "v":
+            self.direction = "v"
+            self.set_slider_pos_to_value = self.vertical_set_slider_pos_to_value
+            self.get_value = self.vertical_get_value
+
+            if not size:
+                self.slider_base.height = screen_h
+            if not pos:
+                self.slider_base.topright = screen_w, 0
+
+            self.slider_rect.width = self.slider_base.width
+            self.slider_rect.x = self.slider_base.x
+        elif direction.lower() == "h":
+            self.direction = "h"
+            self.set_slider_pos_to_value = self.horizontal_set_slider_pos_to_value
+            self.get_value = self.horizontal_get_value
+
+            if not size:
+                self.slider_base.width = screen_w
+            if not pos:
+                self.slider_base.bottomleft = 0, screen_h
+
+            self.slider_rect.height = self.slider_base.height
+            self.slider_rect.y = self.slider_base.y
+
+        self.set_slider_pos_to_value()
+
+        self.mouse_hover = False
+        self.image_size = 0
+        self.is_hidden = False
+
+        self.is_held = False
+
+        if click_sound:
+            self.click_sound = click_sound
+        elif hasattr(builtins, "click_sound"):
+            self.click_sound = builtins.click_sound[0]
+        else:
+            self.click_sound = None
+
+    def update(self, clicked=False):
+        if self.is_hidden:
+            return
+
+        if clicked and self.slider_rect.collidepoint(pygame.mouse.get_pos()):
+            self.is_held = True
+        else:
+            if not pygame.mouse.get_pressed()[0]:
+                if self.is_held:
+                    if self.click_sound:
+                        self.click_sound.play()
+                self.is_held = False
+
+        if self.is_held:
+            if self.direction == "h":
+                self.slider_rect.centerx = pygame.mouse.get_pos()[0]
+
+                self.slider_rect.left = max(self.slider_rect.left, self.slider_base.left)
+                self.slider_rect.right = min(self.slider_rect.right, self.slider_base.right)
+            else:
+                self.slider_rect.centery = pygame.mouse.get_pos()[1]
+
+                self.slider_rect.top = max(self.slider_rect.top, self.slider_base.top)
+                self.slider_rect.bottom = min(self.slider_rect.bottom, self.slider_base.bottom)
+
+        if hasattr(self.variable[0], "set"):
+            self.variable[0].set(self.get_value())
+        else:
+            self.variable[0] = self.get_value()
+
+    def draw(self):
+        if self.is_hidden:
+            return
+        pygame.draw.rect(screen, (150, 255, 150), self.slider_base)
+        pygame.draw.rect(screen, (250, 255, 250), self.slider_rect)
+
+    def hide(self):
+        self.is_hidden = True
+
+    def show(self):
+        self.is_hidden = False
+
+
+if __name__ == "__main__":
+    from pygame.locals import *
+    fps = 60
+    fpsClock = pygame.time.Clock()
+    a = [0]
+    old = a.copy()
+
+    test = Slider(title="Громкость", value=1, variable=a,
+                           position=get_proportion(width / 2 - 175, 700, l_h_pow=1.2),
+                           show_percent=True, size=get_proportion(450, 150))
+    while True:
+        clicked = False
+        screen.fill((0, 0, 0))
+
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                clicked = True
+
+        # Update.
+        test.update(clicked)
+        if a != old:
+            old = a.copy()
+            # print(a)
+
+        # Draw.
+        test.draw()
+
+        pygame.display.flip()
+        fpsClock.tick(fps)

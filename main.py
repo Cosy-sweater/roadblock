@@ -12,6 +12,7 @@ import pygame
 from pygame.locals import *
 from easing_functions import *
 import builtins
+import webbrowser
 
 if __name__ != "__main__":
     sys.exit()
@@ -46,6 +47,17 @@ class Volume:
 
     def get(self):
         return self.volume
+
+def save_data():
+    saved_data["volume"] = global_volume.get()
+    with open(f"{Path.cwd()}/data.json", "w") as f:
+        json.dump(saved_data, f)
+
+
+def read_data():
+    global saved_data
+    with open(f"{Path.cwd()}/data.json", "r") as f:
+        saved_data = json.load(f)
 
 
 global_volume = Volume(1)
@@ -205,8 +217,8 @@ def get_time_of_levels():
     time_list = time_list + [999.999] * (60 - levels_exist)
     return time_list
 
-
-volume_slider = Slider(title="Громкость", value=1, variable=[global_volume],
+read_data()
+volume_slider = Slider(title="Громкость", value=saved_data["volume"], variable=[global_volume],
                        position=get_proportion(width / 2 - 175, 700, l_h_pow=h_pow),
                        show_percent=True, size=get_proportion(450, 150))
 
@@ -554,18 +566,6 @@ def start_level(level=1):
 
 def get_board_position(x, y):
     return x * TILE_SIZE + board.topleft[0], y * TILE_SIZE + board.topleft[1]
-
-
-def save_data():
-    saved_data["volume"] = global_volume.get()
-    with open(f"{Path.cwd()}/data.json", "w") as f:
-        json.dump(saved_data, f)
-
-
-def read_data():
-    global saved_data
-    with open(f"{Path.cwd()}/data.json", "r") as f:
-        saved_data = json.load(f)
 
 
 class House:
