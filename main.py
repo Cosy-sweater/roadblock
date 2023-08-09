@@ -13,6 +13,8 @@ from pygame.locals import *
 from easing_functions import *
 import builtins
 import webbrowser
+from datetime import timedelta
+from pygame_markdown import MarkdownRenderer
 
 if __name__ != "__main__":
     sys.exit()
@@ -47,6 +49,7 @@ class Volume:
 
     def get(self):
         return self.volume
+
 
 def save_data():
     saved_data["volume"] = global_volume.get()
@@ -214,8 +217,9 @@ def get_time_of_levels():
     for i in range(1, levels_exist + 1):
         with open(f'{Path.cwd()}/levels/level_{i}.json', "r") as f:
             time_list.append(json.load(f)["time"])
-    time_list = time_list + [999.999] * (60 - levels_exist)
+    time_list = time_list + [2_147_483_646] * (60 - levels_exist)
     return time_list
+
 
 read_data()
 volume_slider = Slider(title="Громкость", value=saved_data["volume"], variable=[global_volume],
@@ -233,7 +237,7 @@ def show_menu():
         curent_page, prev_page = n, curent_page
 
     def unlock_all():
-        saved_data["max_level"] = 60
+        saved_data["max_level"] = levels_exist
         [i.remove() for i in popups]
         popups.append(
             MiniPopup(subtext="Все уровни теперь доступны",
@@ -241,7 +245,17 @@ def show_menu():
         )
         save_data()
 
-    def reset_data():
+    def reset_data(confirm=False):
+        if not confirm:
+            popups.append(
+                Popup(title="Подтверждение",
+                      subtext="Вы уверены, что хотите сбросить информацию\n о пройденных уровнях и настройках?",
+                      buttons=[Button(text="Да", command=reset_data, command_args=[True], size=get_proportion(150, 150),
+                                      position=(-1000, -1000)),
+                               Button(text="Нет", size=get_proportion(150, 150), position=(-1000, -1000))],
+                      destroy_on_click=True)
+            )
+            return
         global saved_data
         saved_data = {"rotation_inversion": False, "max_level": 1, "tutorial": True, "volume": 1}
         global_volume.set(1)
@@ -256,12 +270,12 @@ def show_menu():
         for i in range(1, levels_exist + 1):
             with open(f'{Path.cwd()}/levels/level_{i}.json', "r") as f:
                 saved = json.load(f)
-                saved["time"] = 999.999
+                saved["time"] = 2_147_483_646
             with open(f'{Path.cwd()}/levels/level_{i}.json', "w") as f:
                 json.dump(saved, f)
 
     exit_button = Button(command=close_app,
-                         position=(screen_w - get_proportion(h=50)[1], screen_h - get_proportion(h=50)[1]),
+                         position=(screen_w - get_proportion(h=50)[1], 0),
                          size=get_proportion(50, 50, square="h"),
                          color=(255, 0, 0), text="X")
     play_button = Button(size=get_proportion(450, 150),
@@ -296,6 +310,7 @@ def show_menu():
     reset_button = Button(size=get_proportion(450, 150),
                           position=get_proportion(width / 2 - 175, 500, l_h_pow=h_pow),
                           text="Сброс", command=reset_data, )
+    info = Info()
 
     curent_page = 1
     prev_page = curent_page
@@ -304,7 +319,7 @@ def show_menu():
     l2 = [level_buttons, button_prev, button_next]
     l2[0].draw()
     l3 = [unlock_all_button, reset_button, volume_slider]
-    l4 = [Button(text="123", size=(100, 100), position=screen.get_rect().center)]
+    l4 = [info]
 
     while True:
         screen.fill((128, 128, 128))
@@ -313,8 +328,10 @@ def show_menu():
         if prev_page != curent_page:
             prev_page = curent_page
 
+        events = pygame.event.get()
+
         try:
-            for event in pygame.event.get():
+            for event in events:
                 if event.type == QUIT or (
                         event.type == KEYDOWN and event.key == K_F4 and (event.key[K_LALT] or event.key[K_LALT])):
                     close_app()
@@ -386,6 +403,12 @@ def show_menu():
 
 
 def start_level(level=1):
+    if level > levels_exist:
+        popups.clear()
+        popups.append(MiniPopup(subtext="Такого уровня не существует",
+                                buttons=[Button(text="OK", size=get_proportion(150, 70))]))
+        return
+
     global saved_data
 
     read_data()
@@ -421,7 +444,7 @@ def start_level(level=1):
         if not result[0]:
             with open(f"{Path.cwd()}/levels/level_{level}.json", "w") as f:
                 t = round(time.perf_counter() - start_time, 1)
-                json_data["time"] = min(t if start_time != -1 else 999.999, json_data["time"])
+                json_data["time"] = min(timer if start_time != -1 else 2147483646, json_data["time"])
                 json.dump(json_data, f)
             if not cheated:
                 saved_data["max_level"] = max(level + 1, saved_data["max_level"])
@@ -446,6 +469,11 @@ def start_level(level=1):
     start_time = -1
     cheated = False
     flag2 = False
+    timer = 0
+    completed = False
+
+    d_clock = DifficultyClock(position=get_proportion(w=width - 200, h=height - 300))
+    d_clock.set_angle(90 - ((level - 1) // 15 * 90) - 10 - ((level - 1) % 15 * 70 / 15))
 
     for i in json_data:
         if "house" in i:
@@ -468,13 +496,17 @@ def start_level(level=1):
                          color=(255, 0, 0), text="X")
     menu_button = Button(command=end_gameloop, position=(0, 0), size=get_proportion(50, 50, square="h"), text="<")
 
-    hint_button = Button(position=get_proportion(w=0, h=450), size=get_proportion(100, 100, square="h"), command=summon_hint_menu)
+    hint_button = Button(position=get_proportion(w=0, h=450), size=get_proportion(100, 100, square="h"),
+                         command=summon_hint_menu)
 
     while game_loop:
         curent_tiles = ocupied_tiles.copy()
         screen.fill((0, 0, 0))
 
         clicked = False
+
+        if timer != 0 and not completed:
+            timer += dt
 
         for event in pygame.event.get():
             if event.type == QUIT or (event.type == KEYDOWN and event.key == K_F4 and (key[K_LALT] or key[K_LALT])):
@@ -505,6 +537,7 @@ def start_level(level=1):
             if not flag:
                 curent_tiles.extend(car_tiles)
             if car.is_picked and start_time == -1 and not cheated:
+                timer = dt
                 start_time = time.perf_counter()
         hints.update()
 
@@ -517,11 +550,16 @@ def start_level(level=1):
             try:
                 submit_button.update(clicked)
             except FunctionExit:
+                completed = True
                 popups.append(
-                    Popup(title="TeSt", buttons=[
-                        Button(text="M", command=end_gameloop, command_args=[]),
-                        Button(text="N", command=start_level, command_args=[level + 1]) if level < 60 else None,
-                        Button(text="R", command=start_level, command_args=[level])], destroy_on_click=True))
+                    Popup(title="Уровень пройден",
+                          subtext=f'Уровень №{level} пройден!\n'
+                                  f'Этот результат {"не " if cheated else ""} будет засчитан в статистику\n'
+                                  f'Время: {"не засчитывается" if cheated else str(timedelta(seconds=timer // 1000)).lstrip("0").lstrip(":")}\n',
+                          buttons=[
+                              Button(text="M", command=end_gameloop, command_args=[]),
+                              Button(text="N", command=start_level, command_args=[level + 1]) if level < 60 else None,
+                              Button(text="R", command=start_level, command_args=[level])], destroy_on_click=True))
                 flag2 = True
         update_popups(clicked)
         if popups:
@@ -530,6 +568,8 @@ def start_level(level=1):
 
         if len(curent_tiles) != 36:
             path_rects.clear()
+
+        d_clock.update()
 
         # Draw.
         #  bottom level
@@ -543,6 +583,7 @@ def start_level(level=1):
         [car.draw() for car in car_list]
         submit_button.draw()
         hints.draw()
+        d_clock.draw()
         car_surf.draw()
         menu_button.draw()
 
@@ -557,11 +598,22 @@ def start_level(level=1):
 
         [i.draw() for i in path_rects]
 
+        curent_time = timer // 1000
+        curent_time = str(timedelta(seconds=curent_time))
+        curent_time = curent_time.lstrip("0")
+        curent_time = curent_time.lstrip(":")
+        curent_time = curent_time.lstrip("0")
+        curent_time = curent_time.lstrip(":")
+
+        timer_surf = font1.render(curent_time, False, (0, 255, 255))
+
+        screen.blit(timer_surf, (screen_w - timer_surf.get_width() - 10, 0))
+
         draw_popups()
         exit_button.draw()
 
         pygame.display.flip()
-        fpsClock.tick(fps)
+        dt = fpsClock.tick(fps)
 
 
 def get_board_position(x, y):
@@ -839,7 +891,8 @@ class Popup:
             self.subtext = [font2.render(i, False, (0, 0, 0)) for i in self.subtext]
 
         self.remove_self = False
-        self.close_button = Button(text="<", size=get_proportion(50, 50, square="h"), position=(-200, -200), command=self.remove)
+        self.close_button = Button(text="<", size=get_proportion(50, 50, square="h"), position=(-200, -200),
+                                   command=self.remove)
         self.show_close_button = show_close_button
 
     def update(self, clicked=False):
@@ -1030,7 +1083,14 @@ class LevelButtonsGroup:
                    position=get_button_position(i),
                    size=[150 * get_proportion()[0]] * 2,
                    command_args=(i,)) for i in range(1, 61)]
+        self.ease_duration = 0.4 * fps
         self.frame = 0
+        self.screen_slides = {"forward": [],
+                              "backward": []}
+        self.f_screen_removal_clock = QuadEaseInOut(start=0, end=screen_w,
+                                                    duration=self.ease_duration)
+        self.b_screen_removal_clock = QuadEaseInOut(start=0, end=-screen_w,
+                                                    duration=self.ease_duration)
 
         self.curent_page = 0
 
@@ -1038,6 +1098,9 @@ class LevelButtonsGroup:
         self.bg_surf.set_alpha(0)
 
         self.max_level_old = -1
+
+        self.dclock = DifficultyClock(position=get_proportion(1920 - 175, 1080 - 175))
+        self.dclock.set_angle(45)
 
     def update(self, clicked=False):
         self.bg_surf.fill(self.bg_colors[self.curent_page])
@@ -1053,6 +1116,7 @@ class LevelButtonsGroup:
                 else:
                     i[1].is_locked = False
             self.max_level_old = saved_data["max_level"]
+        self.dclock.update()
 
     def draw(self):
         screen.fill((128, 128, 128))
@@ -1066,10 +1130,34 @@ class LevelButtonsGroup:
         for i in enumerate(t):
             pos = list(buttons_to_draw[i[0]].rect.midbottom)
             pos[1] -= get_proportion(h=10)[1]
-            text = font2.render(str(i[1]) if i[1] != 999.999 else "", False, (0, 0, 0))
+            if i[1] != 2_147_483_646:
+                level_time = i[1]
+                level_time = level_time // 1000
+                level_time = str(timedelta(seconds=level_time))
+                level_time = level_time.lstrip("0")
+                level_time = level_time.lstrip(":")
+                text = font2.render(level_time, False, (0, 0, 0))
+            else:
+                text = font2.render("", False, (0, 0, 0))
             a = text.get_rect()
             a.midtop = pos
             screen.blit(text, a)
+
+        self.last_frame = screen.copy()
+
+        for i in self.screen_slides["forward"][::-1]:
+            i[1] += 1
+            if i[1] > self.ease_duration:
+                self.screen_slides["forward"].remove(i)
+            screen.blit(i[0], (self.f_screen_removal_clock.ease(i[1]), 0))
+
+        for i in self.screen_slides["backward"][::-1]:
+            i[1] += 1
+            if i[1] > self.ease_duration:
+                self.screen_slides["backward"].remove(i)
+            screen.blit(i[0], (self.b_screen_removal_clock.ease(i[1]), 0))
+
+        self.dclock.draw()
 
     def hide(self):
         [button.hide() for button in self.levels]
@@ -1081,12 +1169,18 @@ class LevelButtonsGroup:
         self.curent_page += 1
         self.curent_page %= 4
         self.frame = 0
+        self.screen_slides["backward"].append([self.last_frame, 0])
+
+        self.dclock -= 90
 
     def prev(self):
         self.curent_page -= 1
         if self.curent_page < 0:
             self.curent_page = 3
         self.frame = 0
+        self.screen_slides["forward"].append([self.last_frame, 0])
+
+        self.dclock += 90
 
 
 class Hints:
@@ -1177,6 +1271,117 @@ class Hints:
         self.ghost_car = None
         self.ghost_car_data = None
         self.ghost_car_number = None
+
+
+class DifficultyClock:
+    def __init__(self, position: tuple = (0, 0)):
+        self.base_rect = pygame.Rect(position, (150, 150))
+        self.base_image = pygame.image.load(f"{Path.cwd()}/img/clock.png").convert()
+        self.base_image.set_colorkey((255, 255, 255))
+        self.base_image = pygame.transform.scale(self.base_image, self.base_rect.size)
+
+        self.arrow_image_origin = pygame.image.load(f"{Path.cwd()}/img/clock_arrow.png").convert()
+        self.arrow_image_origin.set_colorkey((255, 255, 255))
+        self.arrow_image_origin = pygame.transform.scale(self.arrow_image_origin, (50, self.base_rect.height))
+        self.arrow_image = self.arrow_image_origin.copy()
+
+        self.angle = 0
+        self.curent_angle = 0
+
+        self.ease_duration = 0.3 * fps
+        self.ease_clock = CircularEaseInOut(start=self.curent_angle, end=self.curent_angle, duration=self.ease_duration)
+        self.frame = -1
+
+    def set_angle(self, angle: int):
+        self.angle = angle
+        self.ease_clock = CircularEaseInOut(start=self.curent_angle, end=self.angle, duration=self.ease_duration)
+        self.frame = 0
+
+    def update(self):
+        self.frame += 1
+        if self.frame > self.ease_duration:
+            self.frame = -1
+            self.ease_clock = CircularEaseInOut(start=self.curent_angle, end=self.curent_angle,
+                                                duration=self.ease_duration)
+        else:
+            self.curent_angle = self.ease_clock.ease(self.frame)
+            self.arrow_image = pygame.transform.rotate(self.arrow_image_origin, self.curent_angle)
+            self.arrow_image.set_colorkey((255, 255, 255))
+
+    def draw(self):
+        screen.blit(self.base_image, self.base_rect)
+        temp_rect = self.arrow_image.get_rect()
+        temp_rect.center = self.base_rect.center
+        screen.blit(self.arrow_image, temp_rect)
+
+    def __iadd__(self, other: int):
+        self.set_angle(self.angle + other)
+        return self
+
+    def __isub__(self, other: int):
+        self.set_angle(self.angle - other)
+        return self
+
+
+class Info:
+    def __init__(self):
+
+        self.title = font1.render("Информация", True, (255, 255, 255))
+        self.title_rect = self.title.get_rect()
+        self.title_rect.midtop = screen.get_rect().midtop
+
+        self.future_text = '''Roadblock - увлекательная головоломка, задача которой ...\n
+        Данная игра не является оригиналом\n
+        \n
+        Над игрой работали:\n
+            Cosy_sweater(програмист)\n
+            ???(художник)\n
+        \n
+        Ссылки:'''
+        self.text = "В разработке"
+        self.text, self.text_rects = self.format_text()
+
+    def update(self, *_):
+        pass
+
+    def draw(self):
+        screen.blit(self.title, self.title_rect)
+
+        for n, rect in enumerate(self.text_rects[1:]):
+            rect = rect.copy()
+            rect.x += 200
+            rect.y += 200
+            screen.blit(self.text[n], rect)
+
+    def hide(self):
+        self.is_hidden = True
+
+    def show(self):
+        self.is_hidden = False
+
+    def format_text(self):
+        x = 15
+        y = 0
+        res = []
+        res_rects = [pygame.Rect((0, 0), (0, 0))]
+
+        for i in self.text.split():
+            i = font2.render(i + " ", True, (255, 255, 255))
+            i_rect = i.get_rect()
+
+            res.append(i)
+
+            i_rect.topleft = res_rects[-1].topright
+
+            if i_rect.right > screen_w:
+                i_rect.y += 20
+                i_rect.left = 15
+
+            res_rects.append(i_rect)
+
+        return res, res_rects
+
+
 
 
 read_data()
