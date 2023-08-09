@@ -14,7 +14,6 @@ from easing_functions import *
 import builtins
 import webbrowser
 from datetime import timedelta
-from pygame_markdown import MarkdownRenderer
 
 if __name__ != "__main__":
     sys.exit()
@@ -129,45 +128,45 @@ def set_volume(value):
 
 
 def get_tutorial_step(n: int):
-    button_next = Button(text="Далее", size=get_proportion(150, 70), command=get_tutorial_step, command_args=[n + 1])
+    button_next = Button(text="Next", size=get_proportion(150, 70), command=get_tutorial_step, command_args=[n + 1])
     tutorial_popups = [
-        Popup(title='Правила', subtext='''Задача игры состоит в том, чтобы не дать красной машине выбраться из двора
-Для этого нужно расставить на поле шесть полицейских машин так, чтобы заблокировать ей выезд''',
+        Popup(title='Rules', subtext='''The task of the game is to prevent the red car from getting out of the yard
+To do this, you need to place six police cars on the field so as to block her exit''',
               buttons=[button_next], destroy_on_click=True),
 
-        MiniPopup(title="Поле", subtext='''На поле присутствуют красная машина,
-дома, а также пустые поля для
-размещения полицейских машин''', buttons=[button_next]),
+        MiniPopup(title="Field", subtext='''On the field there is a red car,
+houses, as well as empty fields for
+the placement of police cars''', buttons=[button_next]),
 
-        MiniPopup(title="Полицейские машины", subtext='''Чтобы посмотреть полицейские машины,
-сдвиньте мышь в нижнюю часть экрана''', buttons=[button_next], destroy_on_event=lambda *_: car_surf.is_expended,
+        MiniPopup(title="Police cars", subtext='''To view police cars,
+slide the mouse to the bottom of the screen''', buttons=[button_next], destroy_on_event=lambda *_: car_surf.is_expended,
                   do_on_destroy=f'get_tutorial_step({n + 1})'),
 
-        Popup(title="Полицейские машины",
-              subtext='''Чтобы поставить полицейскую машинну на поле, нужно навести на неё мышь
-и перетянуть её в нужную часть поля
-        
-Чтобы вращать машину, нужно вращать ролик мыши''',
+        Popup(title="Police cars",
+              subtext='''To put a police car on the field, you need to point the mouse at it
+and drag it to the desired part of the field
+ 
+To rotate the car, you need to rotate the mouse roller''',
               buttons=[button_next], destroy_on_click=True),
 
-        Popup(title="Красная машины", subtext='''Красная машина может двигаться только по свободным клеткам
-Она считается заблокированной тогда, когда не остаётся путей, ведущих к краю поля
-            
-Чтобы пройти уровень, нужно заблокировать красную машину,
-разместив при этом все полицейские машины''',
+        Popup(title="Red car", subtext='''The red car can only move through free cells
+It is considered blocked when there are no paths leading to the edge of the field
+ 
+To complete the level, you need to block the red car,
+while placing all the police cars''',
               buttons=[button_next], destroy_on_click=True),
 
-        Popup(title="Подсказки", subtext='''Если не получается пройти уровень, 
-можно воспользоваться подсказкой
-        
-        Меню подсказок можно вызвать кнопкой слева''',
+        Popup(title="Hints", subtext='''If you can't pass the level, 
+you can use the hint
+ 
+ The menu of hints can be called with the button on the left''',
               buttons=[button_next], destroy_on_click=True),
 
-        MiniPopup(title="Подсказки", subtext='''Если воспользоваться меню подсказок,
-         то время прохождения уровня
-          не будет засчитано''',
+        MiniPopup(title="Hints", subtext='''If you use the hints menu,
+the time of passing the level
+will not be counted''',
                   buttons=[
-                      Button(text="Закончить", size=get_proportion(150, 70), command=lambda *_: None, command_args=[])],
+                      Button(text="Finish", size=get_proportion(150, 70), command=lambda *_: None, command_args=[])],
                   destroy_on_click=True)
     ]
     if n > len(tutorial_popups):
@@ -201,11 +200,11 @@ def rotate(data, step=1):
 
 def summon_hint_menu():
     popups.append(Popup(
-        title="Меню подсказок",
+        title="Hint menu",
         subtext="",
         buttons=[
-            Button(text="1", size=get_proportion(450, 450, square="h"), command=hints.get_hint),
-            Button(text="2", size=get_proportion(450, 450, square="h"), command=hints.solve)
+            Button(text="Hint", size=get_proportion(450, 450, square="h"), command=hints.get_hint),
+            Button(text="Solve", size=get_proportion(450, 450, square="h"), command=hints.solve)
         ],
         big_buttons=True,
         destroy_on_click=True
@@ -240,7 +239,7 @@ def show_menu():
         saved_data["max_level"] = levels_exist
         [i.remove() for i in popups]
         popups.append(
-            MiniPopup(subtext="Все уровни теперь доступны",
+            MiniPopup(subtext="All levels are now unlocked",
                       buttons=[Button(text="OK", size=get_proportion(150, 70))])
         )
         save_data()
@@ -248,11 +247,11 @@ def show_menu():
     def reset_data(confirm=False):
         if not confirm:
             popups.append(
-                Popup(title="Подтверждение",
-                      subtext="Вы уверены, что хотите сбросить информацию\n о пройденных уровнях и настройках?",
-                      buttons=[Button(text="Да", command=reset_data, command_args=[True], size=get_proportion(150, 150),
+                Popup(title="Confirmation",
+                      subtext="Are you sure you want to reset the information\n about the completed levels and settings?",
+                      buttons=[Button(text="Yes", command=reset_data, command_args=[True], size=get_proportion(150, 150),
                                       position=(-1000, -1000)),
-                               Button(text="Нет", size=get_proportion(150, 150), position=(-1000, -1000))],
+                               Button(text="No", size=get_proportion(150, 150), position=(-1000, -1000))],
                       destroy_on_click=True)
             )
             return
@@ -262,7 +261,7 @@ def show_menu():
         volume_slider.set_slider_pos_to_value()
         [i.remove() for i in popups]
         popups.append(
-            MiniPopup(subtext="Информация об игре\n и настройки сброшены",
+            MiniPopup(subtext="Game information\n and settings reset",
                       buttons=[Button(text="OK", size=get_proportion(150, 70))])
         )
         save_data()
@@ -280,23 +279,23 @@ def show_menu():
                          color=(255, 0, 0), text="X")
     play_button = Button(size=get_proportion(450, 150),
                          position=get_proportion(width / 2 - 175, 170, l_h_pow=h_pow),
-                         text="Продолжить",
+                         text="Continue",
                          text_align="center",
                          command=start_level, command_args=[saved_data["max_level"]])
     levels_button = Button(size=get_proportion(450, 150),
                            position=get_proportion(width / 2 - 175, 370, l_h_pow=h_pow),
-                           text="Уровни",
+                           text="Levels",
                            text_align="сenter",
                            command=set_page, command_args=[2], get_answ=1)
     info_button = Button(size=get_proportion(450, 150),
-                         position=get_proportion(width / 2 - 175, 570, l_h_pow=h_pow), text="Инфо",
+                         position=get_proportion(width / 2 - 175, 570, l_h_pow=h_pow), text="Info",
                          text_align="сenter", command=set_page, command_args=[4])
     back_button = Button(size=get_proportion(50, 50, square="h"), position=(0, 0), text="<-", command=set_page,
                          command_args=[1])
 
     settings_button = Button(size=get_proportion(450, 150),
                              position=get_proportion(width / 2 - 175, 770, l_h_pow=h_pow),
-                             text="Настройки", command=set_page, command_args=[3])
+                             text="Settings", command=set_page, command_args=[3])
 
     level_buttons = LevelButtonsGroup()
     button_next = Button(command=level_buttons.next, size=get_proportion(100, 100, square="w"),
@@ -306,10 +305,10 @@ def show_menu():
 
     unlock_all_button = Button(size=get_proportion(450, 150),
                                position=get_proportion(width / 2 - 175, 300, l_h_pow=h_pow),
-                               text="Открыть все уровни", command=unlock_all, )
+                               text="Unlock all levels", command=unlock_all, )
     reset_button = Button(size=get_proportion(450, 150),
                           position=get_proportion(width / 2 - 175, 500, l_h_pow=h_pow),
-                          text="Сброс", command=reset_data, )
+                          text="Reset", command=reset_data, )
     info = Info()
 
     curent_page = 1
@@ -405,7 +404,7 @@ def show_menu():
 def start_level(level=1):
     if level > levels_exist:
         popups.clear()
-        popups.append(MiniPopup(subtext="Такого уровня не существует",
+        popups.append(MiniPopup(subtext="This level does not exist",
                                 buttons=[Button(text="OK", size=get_proportion(150, 70))]))
         return
 
@@ -504,6 +503,7 @@ def start_level(level=1):
         screen.fill((0, 0, 0))
 
         clicked = False
+        popup_clicked = False
 
         if timer != 0 and not completed:
             timer += dt
@@ -518,6 +518,7 @@ def start_level(level=1):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     clicked = True
+                    popup_clicked = True
 
         # Update.
         car_surf.update()
@@ -552,16 +553,16 @@ def start_level(level=1):
             except FunctionExit:
                 completed = True
                 popups.append(
-                    Popup(title="Уровень пройден",
-                          subtext=f'Уровень №{level} пройден!\n'
-                                  f'Этот результат {"не " if cheated else ""} будет засчитан в статистику\n'
-                                  f'Время: {"не засчитывается" if cheated else str(timedelta(seconds=timer // 1000)).lstrip("0").lstrip(":")}\n',
+                    Popup(title="Level completed",
+                          subtext=f'Level №{level} completed!\n'
+                                  f'This result will {"not " if cheated else ""} be saved to statistics\n'
+                                  f'Time: {"not saved" if cheated else str(timedelta(seconds=timer // 1000)).lstrip("0").lstrip(":")}\n',
                           buttons=[
                               Button(text="M", command=end_gameloop, command_args=[]),
                               Button(text="N", command=start_level, command_args=[level + 1]) if level < 60 else None,
                               Button(text="R", command=start_level, command_args=[level])], destroy_on_click=True))
                 flag2 = True
-        update_popups(clicked)
+        update_popups(popup_clicked)
         if popups:
             if popups[-1].remove_self and flag2:
                 return
@@ -1326,7 +1327,7 @@ class DifficultyClock:
 class Info:
     def __init__(self):
 
-        self.title = font1.render("Информация", True, (255, 255, 255))
+        self.title = font1.render("Information", True, (255, 255, 255))
         self.title_rect = self.title.get_rect()
         self.title_rect.midtop = screen.get_rect().midtop
 
@@ -1335,10 +1336,10 @@ class Info:
         \n
         Над игрой работали:\n
             Cosy_sweater(програмист)\n
-            ???(художник)\n
+            caonfyea(художник)\n
         \n
         Ссылки:'''
-        self.text = "В разработке"
+        self.text = "In development"
         self.text, self.text_rects = self.format_text()
 
     def update(self, *_):

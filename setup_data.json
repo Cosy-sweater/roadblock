@@ -79,10 +79,6 @@
   },
   {
    "optionDest": "datas",
-   "value": "C:/Users/vladb/PycharmProjects/Roadblock/main.py;."
-  },
-  {
-   "optionDest": "datas",
    "value": "C:/Users/vladb/PycharmProjects/Roadblock/readme.md;."
   },
   {
@@ -104,6 +100,22 @@
   {
    "optionDest": "hiddenimports",
    "value": "platformdirs"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "datetime"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "webbrowser"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "easing-functions"
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/vladb/PycharmProjects/Roadblock/sounds;sounds/"
   }
  ],
  "nonPyinstallerOptions": {
