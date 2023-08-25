@@ -5,6 +5,7 @@ import sys
 import json
 import time
 from pathlib import Path
+import ctypes
 
 import level_solver
 
@@ -14,10 +15,15 @@ from easing_functions import *
 import builtins
 import webbrowser
 from datetime import timedelta
-from pygame_markdown import MarkdownRenderer
 
 if __name__ != "__main__":
     sys.exit()
+if not ctypes.windll.shell32.IsUserAnAdmin():
+    print('Not enough priviledge, restarting...')
+    ctypes.windll.shell32.ShellExecuteW(
+        None, 'runas', sys.executable, ' '.join(sys.argv), None, None)
+else:
+    print('Elevated privilege acquired')
 
 pygame.init()
 pygame.font.init()
@@ -472,7 +478,7 @@ def start_level(level=1):
     timer = 0
     completed = False
 
-    d_clock = DifficultyClock(position=get_proportion(w=width - 200, h=height - 300))
+    d_clock = DifficultyClock(position=(screen_w - 200, screen_h-300))
     d_clock.set_angle(90 - ((level - 1) // 15 * 90) - 10 - ((level - 1) % 15 * 70 / 15))
 
     for i in json_data:
@@ -1035,7 +1041,7 @@ class MiniPopup(Popup):
         self.update_buttons()
 
     def update(self, clicked=False):
-        if self.main_rect.left > width - self.main_rect.width and not self.remove_self:
+        if self.main_rect.left > screen_w - self.main_rect.width and not self.remove_self:
             self.ease_clock += 1
             self.main_rect.left = self.ease_generator_x.ease(self.ease_clock)
             self.update_buttons()
@@ -1099,7 +1105,7 @@ class LevelButtonsGroup:
 
         self.max_level_old = -1
 
-        self.dclock = DifficultyClock(position=get_proportion(1920 - 175, 1080 - 175))
+        self.dclock = DifficultyClock(position=(screen_w-175, screen_h-175))
         self.dclock.set_angle(45)
 
     def update(self, clicked=False):
