@@ -19,10 +19,10 @@ def run(maze):
             prev.append(curent)
             curent = frontier[0]
         except IndexError:
-            return 0, []  # succes
+            return 0  # succes
 
         if 0 in curent or 5 in curent:
-            return 1, visited + [curent]  # fail
+            return 1  # fail
 
         temp = curent.copy()
         temp[0] -= 1
@@ -68,23 +68,6 @@ def get_finish_points(maze):
         else:
             pass
     return res
-
-
-def decode_path(path, prev, start):  # nothing to see here
-    return
-    # data = {tuple(i): tuple(j) if j else None for i, j in zip(path, prev)}
-    # print(data)
-    # last = tuple(start)
-    # val = None
-    # res = []
-    # while True:
-    #     val = data[last]
-    #     res.append(last)
-    #     last = val
-    #     if not last:
-    #         break
-    # print(res)
-    # return res
 
 
 if __name__ == "__main__":

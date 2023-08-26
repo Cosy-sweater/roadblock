@@ -1,6 +1,7 @@
 # buttons default sizes: 150x150, 450x150, 450x450, 150x70, 50x50
 # max_level unsync bug
 # sound credits: https://www.zapsplat.com
+import os
 import sys
 import json
 import time
@@ -19,9 +20,10 @@ from datetime import timedelta
 if __name__ != "__main__":
     sys.exit()
 if not ctypes.windll.shell32.IsUserAnAdmin():
-    print('Not enough priviledge, restarting...')
-    ctypes.windll.shell32.ShellExecuteW(
-        None, 'runas', sys.executable, ' '.join(sys.argv), None, None)
+    pass
+    # print('Not enough priviledge, restarting...')
+    # ctypes.windll.shell32.ShellExecuteW(
+    #     None, 'runas', sys.executable, ' '.join(sys.argv), None, None)
 else:
     print('Elevated privilege acquired')
 
@@ -98,7 +100,7 @@ screen_w, screen_h = screen.get_size()
 def close_app():
     save_data()
     pygame.quit()
-    sys.exit()
+    os._exit(1)
 
 
 def update_popups(clicked=False):
@@ -447,7 +449,7 @@ def start_level(level=1):
         maze[a[1]][a[0]] = "r"
 
         result = level_solver.run(maze)
-        if not result[0]:
+        if not result:
             with open(f"{Path.cwd()}/levels/level_{level}.json", "w") as f:
                 t = round(time.perf_counter() - start_time, 1)
                 json_data["time"] = min(timer if start_time != -1 else 2147483646, json_data["time"])
@@ -456,10 +458,6 @@ def start_level(level=1):
                 saved_data["max_level"] = max(level + 1, saved_data["max_level"])
                 save_data()
             raise FunctionExit
-        else:
-            if not path_rects:
-                for tile in result[1]:
-                    path_rects.append(PathRect(get_board_position(*tile[::-1])))
 
     def end_gameloop():
         nonlocal game_loop
@@ -494,8 +492,8 @@ def start_level(level=1):
     for num, key in enumerate(cars):
         car_list.append(Car(cars[f'car{num + 1}'], num + 1, car_places[num]))
 
-    submit_button = Button(command=check_solved, position=get_proportion(w=1800, h=450),
-                           size=get_proportion(100, 100, square="h"))
+    # submit_button = Button(command=check_solved, position=get_proportion(w=1800, h=450),
+    #                        size=get_proportion(100, 100, square="h"))
     exit_button = Button(command=close_app,
                          position=(screen_w - get_proportion(h=50)[1], screen_h - get_proportion(h=50)[1]),
                          size=get_proportion(50, 50, square="h"),
@@ -554,7 +552,7 @@ def start_level(level=1):
         if not popups:
             hint_button.update(clicked)
             try:
-                submit_button.update(clicked)
+                check_solved()
             except FunctionExit:
                 completed = True
                 popups.append(
@@ -587,7 +585,7 @@ def start_level(level=1):
         #  mid level
         hint_button.draw()
         [car.draw() for car in car_list]
-        submit_button.draw()
+        # submit_button.draw()
         hints.draw()
         d_clock.draw()
         car_surf.draw()
@@ -780,9 +778,9 @@ class Car:
             pygame.draw.rect(screen, (150, 150, 150), self.main_rect)
         for index, item in enumerate(self.rects):
             if index == self.car_pos and self.car_pos != -1:
-                pygame.draw.rect(screen, (30, 30, 120), item)
+                pygame.draw.rect(screen, (30, 30, 120), item,)
             else:
-                pygame.draw.rect(screen, (150, 150, 150), item)
+                pygame.draw.rect(screen, (150, 150, 150), item,)
 
     def place_closest(self):
         for tile in grid:
